@@ -12,6 +12,8 @@ on:
       - 'apache2/focal/tools/fetch-legacy-php.py'
       - 'apache2/focal/tools/test-legacy-php.py'
       - 'apache2/focal/tools/test-ssl-rewrite.py'
+      - 'apache2/focal/tools/test-fcgid.py'
+      - 'apache2/focal/tools/test-websocket-proxy.py'
 
 permissions:
   contents: write
@@ -234,6 +236,35 @@ jobs:
               apache2ctl -M | grep -q rewrite_module
               apache2ctl -k start
               python3 /tests/test-ssl-rewrite.py verify
+            '
+      - name: Smoke-test mod_fcgid and WebSocket proxy on disposable Apache Focal
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm --cpus=2 --memory=2g \
+            --mount type=bind,source="$PWD/output",target=/build,readonly \
+            --mount type=bind,source="$PWD/apache2/focal/tools",target=/tests,readonly \
+            --env DEBIAN_FRONTEND=noninteractive \
+            ubuntu:20.04 bash -euc '
+              apt-get update
+              apt-get install -y --no-install-recommends \
+                /build/apache2-data_*.deb \
+                /build/apache2-utils_*.deb \
+                /build/apache2-bin_*.deb \
+                /build/apache2_*.deb \
+                libapache2-mod-fcgid python3
+              a2enmod fcgid proxy proxy_wstunnel
+              echo ServerName localhost > /etc/apache2/conf-available/unibo-ci.conf
+              a2enconf unibo-ci
+              python3 /tests/test-fcgid.py configure
+              python3 /tests/test-websocket-proxy.py configure
+              apache2ctl -t
+              apache2ctl -M | grep -q fcgid_module
+              apache2ctl -M | grep -q proxy_wstunnel_module
+              python3 /tests/test-websocket-proxy.py server &
+              apache2ctl -k start
+              python3 /tests/test-fcgid.py verify
+              python3 /tests/test-websocket-proxy.py verify
             '
       - name: Commit exact experimental patch manifest
         shell: bash
