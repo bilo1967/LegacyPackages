@@ -355,6 +355,44 @@ for name in jammy_series:
             sys.exit("Incomplete hcheck relocation diff")
         patch_for_apply = out / "adapted-mod_proxy_hcheck_jammy_fix_to_detect_support.patch"
         patch_for_apply.write_text(rebased)
+    if name == "CVE-2026-48913.patch":
+        # Retain the full 24-file HTTP/2 patch. The only initial fuzz=0
+        # conflicts are an SSL detection symbol in h2_c1_io.c and the
+        # unavailable Jammy string comparator in h2_c2_filter.c. Rebase
+        # those exact lines without removing any other patch section.
+        source = upstream.read_text()
+        expected_paths = (
+            "modules/http2/h2_c1_io.c",
+            "modules/http2/h2_c2_filter.c",
+            "modules/http2/mod_proxy_http2.c",
+        )
+        if (len(re.findall(r"(?m)^--- a/modules/http2/", source)) != 24
+                or any(source.count("--- a/" + path + "\n") != 1
+                       for path in expected_paths)):
+            sys.exit("Unexpected CVE-2026-48913 complete HTTP/2 file set")
+        old_tls = "-    io->is_tls = ap_ssl_conn_is_ssl(session->c1);\n"
+        new_tls = "-    io->is_tls = h2_h2_is_tls(session->c1);\n"
+        if source.count(old_tls) != 1:
+            sys.exit("Unexpected HTTP/2 TLS check in CVE-2026-48913")
+        source = source.replace(old_tls, new_tls, 1)
+        # The upstream fix chooses bytewise case-insensitive comparison
+        # rather than locale/natural sorting. Focal has strcasecmp() but
+        # does not expose ap_cstr_casecmp() in its older source APIs.
+        for old, new in (
+            ("+            if (*strpp && ap_cstr_casecmp(*strpp, start) == 0) {\n",
+             "+            if (*strpp && strcasecmp(*strpp, start) == 0) {\n"),
+            ("+                if (!ap_cstr_casecmp(token, languages[i]))\n",
+             "+                if (!strcasecmp(token, languages[i]))\n"),
+        ):
+            if source.count(old) != 1:
+                sys.exit("Unexpected HTTP/2 comparator patch layout: " + old.strip())
+            source = source.replace(old, new, 1)
+        # The initial Content-Language pointer fix was already imported in
+        # CVE-2026-43951. Keep its context and the second hunk intact.
+        if "CVE-2026-43951.patch" not in current:
+            sys.exit("CVE-2026-48913 requires prior Content-Language fix")
+        patch_for_apply = out / "adapted-CVE-2026-48913.patch"
+        patch_for_apply.write_text(source)
     if name == "reenable-workers-in-standard-error-state-jammy-apache2.patch":
         # Backport both functional changes while retaining Focal's MMN.
         # Jammy's minor bump covers unrelated new hcmethod_t enums: Focal
@@ -789,7 +827,8 @@ for name in jammy_series:
                                   "handle-children-killed-pathologically.patch",
                                   "mod_proxy_hcheck_jammy_fix_to_detect_support.patch",
                                   "fix-a-possible-listener-deadlock.patch",
-                                  "reenable-workers-in-standard-error-state-jammy-apache2.patch")
+                                  "reenable-workers-in-standard-error-state-jammy-apache2.patch",
+                                  "CVE-2026-48913.patch")
                       else "zero-fuzz sequential patch"))
     current.add(name)
 
