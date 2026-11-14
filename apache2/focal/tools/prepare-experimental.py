@@ -80,7 +80,7 @@ for name in jammy_series:
             r"(?m)^@@ -[0-9]+(?:,[0-9]+)? \+[0-9]+(?:,[0-9]+)? @@[^\n]*\n",
             original,
         ))
-        if len(hunk_headers) != 4:
+        if len(hunk_headers) != 3:
             sys.exit("Unexpected CVE-2024-42516 hunk count: "
                      + str(len(hunk_headers)))
         removed = "".join("-" + line for line in old_calls.splitlines(keepends=True))
