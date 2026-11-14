@@ -304,6 +304,36 @@ jobs:
               apache2ctl -k start
               python3 /tests/test-apxs-abi.py verify
             '
+      - name: Smoke-test proxy_hcheck optional AJP detection on Focal
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm --cpus=2 --memory=2g \
+            --mount type=bind,source="$PWD/output",target=/build,readonly \
+            --env DEBIAN_FRONTEND=noninteractive \
+            ubuntu:20.04 bash -euc '
+              apt-get update
+              apt-get install -y --no-install-recommends \
+                /build/apache2-data_*.deb \
+                /build/apache2-utils_*.deb \
+                /build/apache2-bin_*.deb \
+                /build/apache2_*.deb \
+                python3
+              echo ServerName localhost > /etc/apache2/conf-available/unibo-ci.conf
+              a2enconf unibo-ci
+              a2enmod proxy proxy_hcheck
+              printf "proxy-healthcheck-focal\n" > /var/www/html/hcheck-probe.txt
+              apache2ctl -t
+              apache2ctl -M | grep -q proxy_hcheck_module
+              apache2ctl -k start
+              python3 -c "import urllib.request; assert urllib.request.urlopen(\"http://127.0.0.1/hcheck-probe.txt\").read().strip() == b\"proxy-healthcheck-focal\""
+              apache2ctl -k stop
+              a2enmod proxy_ajp
+              apache2ctl -t
+              apache2ctl -M | grep -q proxy_ajp_module
+              apache2ctl -k start
+              python3 -c "import urllib.request; assert urllib.request.urlopen(\"http://127.0.0.1/hcheck-probe.txt\").read().strip() == b\"proxy-healthcheck-focal\""
+            '
       - name: Smoke-test mod_auth_digest challenge and credentials on Focal
         shell: bash
         run: |
