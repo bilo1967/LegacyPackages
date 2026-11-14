@@ -75,6 +75,7 @@ def main(version, destination):
         "libapache2-mod-php" + version,
         "php" + version + "-common",
         "php" + version + "-cli",
+        "php" + version + "-readline",  # Required by the versioned CLI package.
         "php" + version + "-opcache",
     ):
         download_verified(assets, package, dest, release_tag)
