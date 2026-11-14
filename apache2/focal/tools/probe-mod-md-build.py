@@ -24,6 +24,22 @@ if len(names) < 20 or "mod_md" not in names:
 files = [md / (name + ".c") for name in names]
 if not all(f.is_file() for f in files):
     sys.exit("One or more Jammy mod_md build inputs are missing")
+# Work on an isolated copy; NEVER alter the official downloaded source.
+# The version guard is bypassed solely to expose subsequent compiler errors.
+# The resulting object MUST NOT be loaded or installed, even if it links.
+source_md = md
+md = out / "mod-md-source-diagnostic"
+if md.exists():
+    shutil.rmtree(md)
+shutil.copytree(source_md, md)
+source_file = md / "mod_md.c"
+guard = '#error "This version of mod_md requires Apache httpd 2.4.48 or newer."'
+source = source_file.read_text()
+if source.count(guard) != 1:
+    sys.exit("Unexpected mod_md version guard: diagnostic must be reviewed")
+source_file.write_text(source.replace(guard,
+    '#warning "DIAGNOSTIC ONLY: unsupported Focal Apache API; never deploy this module"'))
+files = [md / (name + ".c") for name in names]
 apxs = shutil.which("apxs") or shutil.which("apxs2")
 if not apxs:
     sys.exit("Focal apache2-dev missing apxs")
@@ -43,7 +59,7 @@ try:
                        errors="replace", timeout=480)
     output = r.stdout + "\n--- stderr ---\n" + r.stderr
     code = r.returncode
-    status = "COMPILED" if code == 0 else "INCOMPATIBLE"
+    status = "COMPILED_UNSUPPORTED" if code == 0 else "INCOMPATIBLE"
 except subprocess.TimeoutExpired as exc:
     def decode(value):
         return (value or b"").decode("utf-8", "replace") if isinstance(value, bytes) else (value or "")
@@ -58,7 +74,9 @@ report = [
     "Diagnostic only; no module installation or CVE remediation.",
     "",
     "- Environment: disposable Ubuntu 20.04 container, stock apache2-dev.",
-    "- Stage-2 diagnostic: only Jammy http_ssl.h supplied from isolated include path.",
+    "- Stage-3 diagnostic: Jammy http_ssl.h supplied from isolated include path.",
+    "- Minimum Apache 2.4.48 guard bypassed ONLY in disposable source copy.",
+    "- WARNING: any resulting module is unsupported and must NOT be loaded or deployed.",
     "- ABI note: declarations do not provide missing Focal core/mod_ssl hooks or symbols.",
     "- Source: Ubuntu Jammy patched Apache 2.4.52-1ubuntu4.27.",
     f"- Module object count: {len(files)} (complete Jammy config2.m4 md_objs).",
@@ -75,7 +93,7 @@ report = [
 ]
 (out / "report.md").write_text("\n".join(report) + "\n")
 print(f"mod_md full-source Focal header probe: {status} ({code}), {len(files)} source files")
-if status != "COMPILED":
+if status != "COMPILED_UNSUPPORTED":
     print("Compiler output (first relevant diagnostics):")
     print("\n".join(issues[:25]) if issues else output[-3000:])
     sys.exit(1)
@@ -87,4 +105,6 @@ if not module.is_file():
         + "\n**Missing shared object after successful compiler exit.**\n"
     )
     sys.exit(1)
-print("Built module:", module)
+print("Built unsupported diagnostic module:", module)
+print("NOT loading module: Apache 2.4.48 version guard bypassed; ABI unverified")
+sys.exit(1)

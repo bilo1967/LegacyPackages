@@ -6,7 +6,7 @@ on:
     branches: [backport/focal]
     paths:
       - '.github/workflows/apache2-focal-compare.yml'
-      - 'apache2/focal/tools/**'
+      - 'apache2/focal/tools/compare-patches.py'
 
 permissions:
   contents: write

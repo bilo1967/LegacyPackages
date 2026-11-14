@@ -7,7 +7,7 @@ on:
       - backport/focal
     paths:
       - '.github/workflows/apache2-focal.yml'
-      - 'apache2/focal/**'
+      - 'apache2/focal/build/**'
 
 permissions:
   contents: read
