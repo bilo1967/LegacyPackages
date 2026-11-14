@@ -1,0 +1,54 @@
+name: Apache Focal mod_md build compatibility probe
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [backport/focal]
+    paths:
+      - '.github/workflows/apache2-focal-md-compatibility.yml'
+      - 'apache2/focal/tools/probe-mod-md-build.py'
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile full Jammy mod_md against stock Focal headers (diagnostic)
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p output/mod-md-compatibility
+          docker run --rm --cpus=2 --memory=4g --pids-limit=256 \
+            --mount type=bind,source="$PWD",target=/repo \
+            --workdir /repo \
+            --env DEBIAN_FRONTEND=noninteractive \
+            ubuntu:20.04 bash -euc '
+              apt-get update
+              apt-get install -y --no-install-recommends \
+                apache2-dev build-essential dpkg-dev ca-certificates \
+                libcurl4-openssl-dev libjansson-dev libssl-dev python3
+              printf "deb-src http://archive.ubuntu.com/ubuntu jammy main universe\n" \
+                > /etc/apt/sources.list.d/jammy-probe.list
+              printf "deb-src http://archive.ubuntu.com/ubuntu jammy-updates main universe\n" \
+                >> /etc/apt/sources.list.d/jammy-probe.list
+              printf "deb-src http://security.ubuntu.com/ubuntu jammy-security main universe\n" \
+                >> /etc/apt/sources.list.d/jammy-probe.list
+              apt-get update
+              mkdir -p /tmp/jammy
+              (cd /tmp/jammy && apt-get source apache2=2.4.52-1ubuntu4.27)
+              python3 /repo/apache2/focal/tools/probe-mod-md-build.py \
+                /tmp/jammy/apache2-2.4.52 /repo/output/mod-md-compatibility
+            '
+          cat output/mod-md-compatibility/report.md
+      - name: Upload compatibility diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: apache2-focal-mod-md-compatibility-DIAGNOSTIC
+          path: output/mod-md-compatibility/
+          if-no-files-found: warn
+          retention-days: 14
