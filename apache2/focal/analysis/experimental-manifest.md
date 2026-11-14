@@ -9,7 +9,7 @@ Version: \`2.4.41-4ubuntu3.23+unibo0~experiment1\`. Applied: 60; skipped: 7.
 | \`fix-macro.patch\` | applied | zero-fuzz sequential patch |
 | \`fix-a-possible-listener-deadlock.patch\` | skipped | 4 out of 6 hunks FAILED |
 | \`handle-children-killed-pathologically.patch\` | applied | Focal context adapted; see source diff (fuzz=0) |
-| \`mod_proxy_hcheck_jammy_fix_to_detect_support.patch\` | skipped | checking file mod_proxy_hcheck_jammy_fix_to_detect_support.patch |
+| \`mod_proxy_hcheck_jammy_fix_to_detect_support.patch\` | skipped | Focal mod_proxy_hcheck lacks AJP optional-hook detection block; Jammy relocation is not directly applicable |
 | \`reenable-workers-in-standard-error-state-jammy-apache2.patch\` | skipped | 1 out of 1 hunk FAILED |
 | \`CVE-2024-42516.patch\` | applied | zero-fuzz sequential patch |
 | \`CVE-2024-43204-pre1.patch\` | applied | Focal context adapted; see source diff (fuzz=0) |
