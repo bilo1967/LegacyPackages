@@ -2,13 +2,13 @@
 
 Not for production use. No security completeness claim. Jammy source patches are not equivalent to verified Focal ESM.
 
-Version: \`2.4.41-4ubuntu3.23+unibo0~experiment1\`. Applied: 59; skipped: 8.
+Version: \`2.4.41-4ubuntu3.23+unibo0~experiment1\`. Applied: 60; skipped: 7.
 
 | Patch | Decision | Reason |
 |---|---|---|
 | \`fix-macro.patch\` | applied | zero-fuzz sequential patch |
 | \`fix-a-possible-listener-deadlock.patch\` | skipped | 4 out of 6 hunks FAILED |
-| \`handle-children-killed-pathologically.patch\` | skipped | 1 out of 2 hunks FAILED |
+| \`handle-children-killed-pathologically.patch\` | applied | Focal context adapted; see source diff (fuzz=0) |
 | \`mod_proxy_hcheck_jammy_fix_to_detect_support.patch\` | skipped | checking file mod_proxy_hcheck_jammy_fix_to_detect_support.patch |
 | \`reenable-workers-in-standard-error-state-jammy-apache2.patch\` | skipped | 1 out of 1 hunk FAILED |
 | \`CVE-2024-42516.patch\` | applied | zero-fuzz sequential patch |
