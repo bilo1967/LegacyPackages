@@ -17,7 +17,7 @@ jobs:
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
-      - name: Link Jammy mod_md in isolated Focal diagnostic without runtime load
+      - name: Test diagnostic mod_md load in disposable Focal container
         shell: bash
         run: |
           set -euo pipefail
@@ -42,8 +42,33 @@ jobs:
               (cd /tmp/jammy && apt-get source apache2=2.4.52-1ubuntu4.27)
               python3 /repo/apache2/focal/tools/probe-mod-md-build.py \
                 /tmp/jammy/apache2-2.4.52 /repo/output/mod-md-compatibility
-              # Stop after compilation: Apache >=2.4.48 guard was bypassed.
-              # Do not load or install the unsupported diagnostic module.
+              # Deliberately test only in this disposable CI container.
+              # The 2.4.48 version guard was bypassed; NEVER deploy this DSO.
+              mod=/repo/output/mod-md-compatibility/mod-md-source-diagnostic/.libs/mod_md.so
+              test -s "$mod"
+              a2dismod md || true
+              a2enmod ssl
+              printf "ServerName localhost\\n" > /etc/apache2/conf-available/mod-md-probe.conf
+              a2enconf mod-md-probe
+              printf "LoadModule md_module %s\\n" "$mod" > /etc/apache2/mods-available/md_candidate.load
+              a2enmod md_candidate
+              set +e
+              apache2ctl -t > /repo/output/mod-md-compatibility/load-test.log 2>&1
+              code=$?
+              if [ "$code" -eq 0 ]; then
+                printf "mod-md-load-ok\\n" > /var/www/html/mod-md-probe.txt
+                apache2ctl -k start >> /repo/output/mod-md-compatibility/load-test.log 2>&1
+                code=$?
+                if [ "$code" -eq 0 ]; then
+                  python3 -c "import urllib.request; assert urllib.request.urlopen(\\"http://127.0.0.1/mod-md-probe.txt\\", timeout=5).read().strip() == b\\"mod-md-load-ok\\"" >> /repo/output/mod-md-compatibility/load-test.log 2>&1
+                  code=$?
+                  apache2ctl -k stop >> /repo/output/mod-md-compatibility/load-test.log 2>&1
+                fi
+              fi
+              printf "\\n## Disposable-container load test\\n\\nExit code: %s\\n\\n~~~text\\n" "$code" >> /repo/output/mod-md-compatibility/report.md
+              tail -n 60 /repo/output/mod-md-compatibility/load-test.log >> /repo/output/mod-md-compatibility/report.md
+              printf "\\n~~~\\n\\nThis does not establish ABI or ACME/OCSP security compatibility.\\n" >> /repo/output/mod-md-compatibility/report.md
+              exit "$code"
             '
           cat output/mod-md-compatibility/report.md
       - name: Publish readable mod_md diagnostic summary
