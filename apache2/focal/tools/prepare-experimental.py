@@ -62,6 +62,66 @@ for name in jammy_series:
         patched = original.replace(jammy_cmp, focal_cmp)
         patch_for_apply = out / ("adapted-" + name)
         patch_for_apply.write_text(patched)
+    if name == "CVE-2026-106023.patch":
+        # Only mod_md.c differs: regenerate its hunk against the exact Focal
+        # HTTP-01 handler. Keep the upstream md_core/status hunks unchanged.
+        original = upstream.read_text()
+        modmd_path = focal / "modules/md/mod_md.c"
+        before = modmd_path.read_text()
+        func = "static int md_http_challenge_pr(request_rec *r)"
+        if before.count(func) != 1:
+            sys.exit("Cannot safely adapt CVE-2026-106023: HTTP-01 handler not unique")
+        fn_start = before.index(func)
+        # The original patch guards the hostname before the first logging
+        # and domain lookup in the configured HTTP-01 challenge handler.
+        candidate = before[fn_start:]
+        m = re.search(
+            r"(?m)^([ \t]*)if \(sc && sc->mc\) \{\n"
+            r"(?=[ \t]*ap_log_rerror\(APLOG_MARK, APLOG_TRACE1)",
+            candidate,
+        )
+        if not m:
+            sys.exit("Cannot safely adapt CVE-2026-106023: ACME guard anchor absent")
+        if candidate.count("if (sc && sc->mc) {") != 1:
+            sys.exit("Cannot safely adapt CVE-2026-106023: multiple HTTP-01 guards")
+        indent = m.group(1) + "    "
+        upstream_new = (
+            "if (!r->hostname) {\n"
+            "                /* No Host: (e.g. an HTTP/1.0 request without one) means no\n"
+            "                 * domain to look up; leave the request to normal handling. */\n"
+            "                return DECLINED;\n"
+            "            }\n"
+        )
+        # Require the exact logic in the upstream CVE before incorporating it.
+        expected_upstream = (
+            "+            if (!r->hostname) {\n"
+            "+                /* No Host: (e.g. an HTTP/1.0 request without one) means no\n"
+            "+                 * domain to look up; leave the request to normal handling. */\n"
+            "+                return DECLINED;\n"
+            "+            }\n"
+        )
+        if original.count(expected_upstream) != 1:
+            sys.exit("Unexpected CVE-2026-106023 security guard content")
+        guard = "".join(indent + line.lstrip(" ") + "\n"
+                        for line in upstream_new.splitlines())
+        insertion_pos = fn_start + m.end()
+        after = before[:insertion_pos] + guard + before[insertion_pos:]
+        modmd_diff = "".join(difflib.unified_diff(
+            before.splitlines(keepends=True),
+            after.splitlines(keepends=True),
+            fromfile="a/modules/md/mod_md.c",
+            tofile="b/modules/md/mod_md.c",
+            n=3,
+        ))
+        if not modmd_diff.startswith("--- a/modules/md/mod_md.c"):
+            sys.exit("Could not generate mod_md HTTP-01 CVE guard")
+        beginning = original.find("--- a/modules/md/mod_md.c\n")
+        ending = original.find("--- a/modules/md/mod_md_status.c\n", beginning)
+        if beginning < 0 or ending <= beginning:
+            sys.exit("Unexpected CVE-2026-106023 multi-file patch layout")
+        adapted = original[:beginning] + modmd_diff + original[ending:]
+        patch_for_apply = out / "adapted-CVE-2026-106023.patch"
+        patch_for_apply.write_text(adapted)
     if name == "CVE-2026-44631.patch":
         # Focal ap_regex.h omits two pre-existing doc lines present in
         # Jammy. Change ONLY patch context: all security-sensitive additions
@@ -170,7 +230,8 @@ for name in jammy_series:
                                   "CVE-2024-43204-pre1.patch",
                                   "CVE-2024-43204.patch",
                                   "CVE-2025-23048-regression.patch",
-                                  "CVE-2026-44631.patch")
+                                  "CVE-2026-44631.patch",
+                                  "CVE-2026-106023.patch")
                       else "zero-fuzz sequential patch"))
     current.add(name)
 
