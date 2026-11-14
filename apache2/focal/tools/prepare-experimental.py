@@ -400,8 +400,10 @@ for name in jammy_series:
                 n=3
             ))
             if (not diff.startswith("--- a/" + rel_path + "\n")
-                    or diff.count("+" + new.splitlines()[0] + "\n") != 1
-                        and rel_path == paths[1]):
+                    or (rel_path == paths[1]
+                        and diff.count(
+                            "+    else if (PROXY_WORKER_IS_HCFAILED(worker) "
+                            "|| PROXY_WORKER_IS_ERROR(worker)) {\n") != 1)):
                 sys.exit("Failed proxy worker recovery diff: " + rel_path)
             edits.append(diff)
         # Ensure no change to the public ABI/MMN.
