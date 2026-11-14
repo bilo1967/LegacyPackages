@@ -106,6 +106,58 @@ for name in jammy_series:
         replacement = "@@ -1454,4 +1357,0 @@\n" + removed
         patched = (original[:chosen.start()] + replacement
                    + original[chosen_end:])
+        # Focal's response serializer has an explicit 304 Not Modified
+        # header allowlist, absent from Jammy's fourth hunk context.
+        # Carry that allowlist into the refactored serializer unchanged.
+        original_304_start = "    if (r->status == HTTP_NOT_MODIFIED) {\n"
+        original_304_end = "    terminate_header(b2);\n"
+        if http_src.count(original_304_start) != 1:
+            sys.exit("Unexpected Focal 304 response-header handling")
+        start_304 = http_src.index(original_304_start)
+        end_304 = http_src.index(original_304_end, start_304)
+        body_304 = http_src[start_304:end_304]
+        if (body_304.count("send_all_header_fields(&h, r);") != 1
+                or body_304.count("form_header_field") != 1
+                or not body_304.endswith("    }\n\n")):
+            sys.exit("Unexpected Focal 304 response header allowlist")
+        # The fourth hunk must retain the 304-specific header allowlist
+        # in both removed and added sections, with only indentation changed.
+        headers = list(re.finditer(
+            r"(?m)^@@ -[0-9]+(?:,[0-9]+)? \\+[0-9]+(?:,[0-9]+)? @@[^\\n]*\\n",
+            patched,
+        ))
+        if len(headers) != 4:
+            sys.exit("Unexpected adapted CVE-2024-42516 hunk count")
+        fourth = headers[-1]
+        fourth_body = patched[fourth.end():]
+        old_single = "-    send_all_header_fields(&h, r);\n"
+        new_single = "+        send_all_header_fields(&h, r);\n"
+        if (fourth_body.count(old_single) != 1
+                or fourth_body.count(new_single) != 1):
+            sys.exit("CVE-2024-42516 serializer locations not unique")
+        old_allowlist = "".join(
+            "-" + line for line in body_304.splitlines(keepends=True)
+        )
+        new_allowlist = "".join(
+            "+" + ("    " + line if line.strip() else line)
+            for line in body_304.splitlines(keepends=True)
+        )
+        fourth_body = fourth_body.replace(old_single, old_allowlist, 1)
+        fourth_body = fourth_body.replace(new_single, new_allowlist, 1)
+        increase = len(body_304.splitlines()) - 1
+        hunk_header = patched[fourth.start():fourth.end()]
+        count_header = re.match(
+            r"@@ -(\\d+),(\\d+) \\+(\\d+),(\\d+) @@(.*)\\n",
+            hunk_header,
+        )
+        if not count_header:
+            sys.exit("CVE-2024-42516 fourth hunk header unexpected")
+        a, b, c, d = map(int, count_header.groups()[:4])
+        new_header = (
+            f"@@ -{a},{b + increase} +{c},{d + increase} @@"
+            + count_header.group(5) + "\n"
+        )
+        patched = patched[:fourth.start()] + new_header + fourth_body
         patch_for_apply = out / "adapted-CVE-2024-42516.patch"
         patch_for_apply.write_text(patched)
     if name == "CVE-2026-106023.patch":
