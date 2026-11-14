@@ -2,7 +2,7 @@
 
 Not for production use. No security completeness claim. Jammy source patches are not equivalent to verified Focal ESM.
 
-Version: \`2.4.41-4ubuntu3.23+unibo0~experiment1\`. Applied: 46; skipped: 19.
+Version: \`2.4.41-4ubuntu3.23+unibo0~experiment1\`. Applied: 48; skipped: 17.
 
 | Patch | Decision | Reason |
 |---|---|---|
@@ -46,7 +46,7 @@ Version: \`2.4.41-4ubuntu3.23+unibo0~experiment1\`. Applied: 46; skipped: 19.
 | \`CVE-2026-42535.patch\` | applied | zero-fuzz sequential patch |
 | \`CVE-2026-42536.patch\` | applied | zero-fuzz sequential patch |
 | \`CVE-2026-43951.patch\` | skipped | checking file modules/http2/h2_c2_filter.c |
-| \`CVE-2026-44119.patch\` | blocked-dependency | Needs complete CVE-2026-44119 expression parser backport; flag is undefined in Focal (NOT FIXED) |
+| \`CVE-2026-44119.patch\` | applied | Focal strcasecmp context adapted (no security changes) |
 | \`CVE-2026-44185.patch\` | applied | zero-fuzz sequential patch |
 | \`CVE-2026-44186.patch\` | applied | zero-fuzz sequential patch |
 | \`CVE-2026-44631.patch\` | skipped | Hunk #1 succeeded at 321 (offset -5 lines). |
@@ -54,7 +54,7 @@ Version: \`2.4.41-4ubuntu3.23+unibo0~experiment1\`. Applied: 46; skipped: 19.
 | \`CVE-2026-48913-2.patch\` | applied | zero-fuzz sequential patch |
 | \`CVE-2026-56154.patch\` | applied | zero-fuzz sequential patch |
 | \`CVE-2026-57941.patch\` | applied | zero-fuzz sequential patch |
-| \`CVE-2026-59797.patch\` | blocked-dependency | Needs complete CVE-2026-44119 expression parser backport; flag is undefined in Focal (NOT FIXED) |
+| \`CVE-2026-59797.patch\` | applied | zero-fuzz sequential patch |
 | \`CVE-2026-58415.patch\` | applied | zero-fuzz sequential patch |
 | \`CVE-2026-63045.patch\` | applied | zero-fuzz sequential patch |
 | \`CVE-2026-63292.patch\` | applied | zero-fuzz sequential patch |
