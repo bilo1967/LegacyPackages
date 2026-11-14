@@ -60,7 +60,8 @@ jobs:
                 /build/apache2-data_*.deb \
                 /build/apache2-utils_*.deb \
                 /build/apache2-bin_*.deb \
-                /build/apache2_*.deb
+                /build/apache2_*.deb \
+                python3
               apache2ctl -t
               apache2ctl -M > /tmp/modules.txt
               apache2ctl -V > /tmp/version.txt
