@@ -355,6 +355,61 @@ for name in jammy_series:
             sys.exit("Incomplete hcheck relocation diff")
         patch_for_apply = out / "adapted-mod_proxy_hcheck_jammy_fix_to_detect_support.patch"
         patch_for_apply.write_text(rebased)
+    if name == "reenable-workers-in-standard-error-state-jammy-apache2.patch":
+        # Backport both functional changes while retaining Focal's MMN.
+        # Jammy's minor bump covers unrelated new hcmethod_t enums: Focal
+        # cannot advertise that newer API. The added macro is only a status
+        # bit test and does not change proxy worker structs or binary ABI.
+        upstream_diff = upstream.read_text()
+        expected = (
+            "+#define PROXY_WORKER_IS_ERROR(f)   ( (f)->s->status &  PROXY_WORKER_IN_ERROR )",
+            "+    else if (PROXY_WORKER_IS_HCFAILED(worker) || PROXY_WORKER_IS_ERROR(worker)) {",
+            "+#define MODULE_MAGIC_NUMBER_MINOR 126",
+        )
+        if any(upstream_diff.count(x) != 1 for x in expected):
+            sys.exit("Unexpected proxy hcheck worker recovery upstream patch")
+        paths = ("modules/proxy/mod_proxy.h",
+                 "modules/proxy/mod_proxy_hcheck.c")
+        edits = []
+        header_old = (
+            "#define PROXY_WORKER_IS_HCFAILED(f)   ( (f)->s->status &  PROXY_WORKER_HC_FAIL )\n"
+            "\n"
+            "#define PROXY_WORKER_IS(f, b)"
+        )
+        header_new = (
+            "#define PROXY_WORKER_IS_HCFAILED(f)   ( (f)->s->status &  PROXY_WORKER_HC_FAIL )\n"
+            "\n"
+            "#define PROXY_WORKER_IS_ERROR(f)   ( (f)->s->status &  PROXY_WORKER_IN_ERROR )\n"
+            "\n"
+            "#define PROXY_WORKER_IS(f, b)"
+        )
+        hcheck_old = "if (PROXY_WORKER_IS_HCFAILED(worker)) {"
+        hcheck_new = ("if (PROXY_WORKER_IS_HCFAILED(worker) "
+                      "|| PROXY_WORKER_IS_ERROR(worker)) {")
+        for rel_path, old, new in (
+                (paths[0], header_old, header_new),
+                (paths[1], hcheck_old, hcheck_new)):
+            source = (focal / rel_path).read_text()
+            if source.count(old) != 1 or new in source:
+                sys.exit("Cannot uniquely adapt proxy worker recovery: " + rel_path)
+            adapted = source.replace(old, new, 1)
+            diff = "".join(difflib.unified_diff(
+                source.splitlines(keepends=True),
+                adapted.splitlines(keepends=True),
+                fromfile="a/" + rel_path, tofile="b/" + rel_path,
+                n=3
+            ))
+            if (not diff.startswith("--- a/" + rel_path + "\n")
+                    or diff.count("+" + new.splitlines()[0] + "\n") != 1
+                        and rel_path == paths[1]):
+                sys.exit("Failed proxy worker recovery diff: " + rel_path)
+            edits.append(diff)
+        # Ensure no change to the public ABI/MMN.
+        mmn = (focal / "include/ap_mmn.h").read_text()
+        if "MODULE_MAGIC_NUMBER_MINOR" not in mmn:
+            sys.exit("Missing Focal module magic declaration")
+        patch_for_apply = out / "adapted-reenable-workers-in-standard-error-state.patch"
+        patch_for_apply.write_text("".join(edits))
     if name == "fix-a-possible-listener-deadlock.patch":
         # Import all six upstream changes atomically against Focal's event MPM.
         # Unlike Jammy, Focal connections_above_limit() takes no arguments.
@@ -731,7 +786,8 @@ for name in jammy_series:
                                   "CVE-2026-43951.patch",
                                   "handle-children-killed-pathologically.patch",
                                   "mod_proxy_hcheck_jammy_fix_to_detect_support.patch",
-                                  "fix-a-possible-listener-deadlock.patch")
+                                  "fix-a-possible-listener-deadlock.patch",
+                                  "reenable-workers-in-standard-error-state-jammy-apache2.patch")
                       else "zero-fuzz sequential patch"))
     current.add(name)
 
