@@ -230,9 +230,11 @@ jobs:
                 /build/apache2-utils_*.deb \
                 /build/apache2-bin_*.deb \
                 /build/apache2_*.deb \
-                openssl ssl-cert python3
-              a2enmod ssl rewrite
+                openssl ssl-cert python3 curl
+              a2enmod ssl rewrite http2
               a2ensite default-ssl
+              printf "Protocols h2 http/1.1\n" > /etc/apache2/conf-available/unibo-h2-ci.conf
+              a2enconf unibo-h2-ci
               openssl req -x509 -newkey rsa:2048 -nodes -days 1 \
                 -keyout /etc/ssl/private/unibo-ci.key \
                 -out /etc/ssl/certs/unibo-ci.pem \
@@ -250,6 +252,13 @@ jobs:
               apache2ctl -M | grep -q rewrite_module
               apache2ctl -k start
               python3 /tests/test-ssl-rewrite.py verify
+              apache2ctl -M | grep -q http2_module
+              result=$(curl --fail --silent --show-error --insecure --http2 \
+                --output /tmp/unibo-http2-response \
+                --write-out "%{http_version}" \
+                https://localhost/unibo-ci-test.txt)
+              test "$result" = "2"
+              grep -q unibo-focal-http-headers /tmp/unibo-http2-response
             '
       - name: Smoke-test mod_fcgid and WebSocket proxy on disposable Apache Focal
         shell: bash
