@@ -50,6 +50,9 @@ jobs:
               rm /etc/apt/sources.list.d/jammy-source.list
               python3 /repo/apache2/focal/tools/prepare-experimental.py \
                 /tmp/focal/apache2-2.4.41 /tmp/jammy/apache2-2.4.52 /tmp/report
+              python3 /repo/apache2/focal/tools/audit-mod-md.py \
+                /tmp/focal/apache2-2.4.41 /tmp/jammy/apache2-2.4.52 \
+                /repo/output/mod-md-architecture-audit.md
               # Digest is now applied by prepare-experimental.py. Do not run
               # the pre-port conflict audit against a source already patched.
               grep -q "CVE-2026-7363X.patch.*| applied" \
@@ -312,6 +315,30 @@ jobs:
               apache2ctl -M | grep -q unibo_abi_module
               apache2ctl -k start
               python3 /tests/test-apxs-abi.py verify
+            '
+      - name: Smoke-test Focal mod_md load without external ACME traffic
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm --cpus=2 --memory=2g \
+            --mount type=bind,source="$PWD/output",target=/build,readonly \
+            --env DEBIAN_FRONTEND=noninteractive \
+            ubuntu:20.04 bash -euc '
+              apt-get update
+              apt-get install -y --no-install-recommends \
+                /build/apache2-data_*.deb \
+                /build/apache2-utils_*.deb \
+                /build/apache2-bin_*.deb \
+                /build/apache2_*.deb \
+                python3
+              echo ServerName localhost > /etc/apache2/conf-available/unibo-ci.conf
+              a2enconf unibo-ci
+              a2enmod md
+              apache2ctl -t
+              apache2ctl -M | grep -q md_module
+              printf "mod-md-load-ok\n" > /var/www/html/mod-md-probe.txt
+              apache2ctl -k start
+              python3 -c "import urllib.request; assert urllib.request.urlopen(\"http://127.0.0.1/mod-md-probe.txt\", timeout=5).read().strip() == b\"mod-md-load-ok\""
             '
       - name: Smoke-test event graceful restart and worker MPM
         shell: bash
