@@ -24,7 +24,7 @@ run = subprocess.run(
     stderr=subprocess.STDOUT, timeout=60,
 )
 failed = set(int(number) for number in re.findall(
-    r"Hunk #(\\d+) FAILED", run.stdout
+    r"Hunk #(\d+) FAILED", run.stdout
 ))
 if run.returncode == 0 or not failed:
     sys.exit("Unexpected Digest patch outcome; audit must fail closed: " + run.stdout)
@@ -33,9 +33,9 @@ if run.returncode == 0 or not failed:
 start = patch.find("--- a/modules/aaa/mod_auth_digest.c")
 if start < 0:
     sys.exit("Digest source patch section missing")
-end = patch.find("\\ndiff --git ", start + 5)
+end = patch.find("\ndiff --git ", start + 5)
 segment = patch[start:end if end >= 0 else len(patch)]
-hunk_pattern = re.compile(r"(?m)^@@ -(\\d+)(?:,(\\d+))? \\+(\\d+)(?:,(\\d+))? @@[^\\n]*\\n")
+hunk_pattern = re.compile(r"(?m)^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@[^\n]*\n")
 matches = list(hunk_pattern.finditer(segment))
 if len(matches) < max(failed):
     sys.exit("Digest hunk count insufficient: %s vs %s" % (len(matches), max(failed)))
@@ -57,7 +57,7 @@ out = [
 for n in sorted(failed):
     hunk = matches[n - 1]
     next_pos = matches[n].start() if n < len(matches) else len(segment)
-    body = segment[hunk.start():next_pos].rstrip("\\n")
+    body = segment[hunk.start():next_pos].rstrip("\n")
     original_line = int(hunk.group(1))
     lo = max(1, original_line - 22)
     hi = min(len(source_lines), original_line + 40)
@@ -76,5 +76,5 @@ for n in sorted(failed):
                for i in range(lo, hi + 1))
     out.extend(["```", ""])
 destination.parent.mkdir(parents=True, exist_ok=True)
-destination.write_text("\\n".join(out) + "\\n")
+destination.write_text("\n".join(out) + "\n")
 print("Wrote read-only Digest porting audit:", destination, "hunks", sorted(failed))
