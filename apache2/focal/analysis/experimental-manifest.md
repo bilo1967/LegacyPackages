@@ -2,7 +2,7 @@
 
 Not for production use. No security completeness claim. Jammy source patches are not equivalent to verified Focal ESM.
 
-Version: \`2.4.41-4ubuntu3.23+unibo0~experiment1\`. Applied: 55; skipped: 12.
+Version: \`2.4.41-4ubuntu3.23+unibo0~experiment1\`. Applied: 56; skipped: 11.
 
 | Patch | Decision | Reason |
 |---|---|---|
@@ -67,7 +67,7 @@ Version: \`2.4.41-4ubuntu3.23+unibo0~experiment1\`. Applied: 55; skipped: 12.
 | \`CVE-2026-47360.patch\` | applied | zero-fuzz sequential patch |
 | \`CVE-2026-56153.patch\` | applied | zero-fuzz sequential patch |
 | \`CVE-2026-56449.patch\` | applied | zero-fuzz sequential patch |
-| \`CVE-2026-106023.patch\` | skipped | Hunk #1 succeeded at 72 (offset -5 lines). |
+| \`CVE-2026-106023.patch\` | applied | Focal strcasecmp context adapted (no security changes) |
 | \`CVE-2026-109163.patch\` | applied | zero-fuzz sequential patch |
 | \`CVE-2026-119618.patch\` | applied | zero-fuzz sequential patch |
 | \`CVE-2026-42528.patch\` | applied | zero-fuzz sequential patch |
