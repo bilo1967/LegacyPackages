@@ -31,6 +31,7 @@ def configure():
         "    AuthType Digest\n"
         "    AuthName %s\n" % REALM +
         "    AuthUserFile /etc/apache2/unibo-digest.passwd\n"
+        "    AuthDigestNcCheck On\n"
         "    Require valid-user\n"
         "</Location>\n"
     )

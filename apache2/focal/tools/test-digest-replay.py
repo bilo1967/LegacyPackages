@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Diagnostic baseline for Digest nonce-count replay against experimental Focal.
+"""Verify Digest nonce-count replay protection against experimental Focal.
 
 Does not assert that CVE-2026-7363X is fixed. The deliberately identical
 authenticated request is sent twice to detect whether the old module accepts
@@ -73,13 +73,11 @@ def main():
         "initial Digest request not accepted", first, first_body
     )
     second, _, _ = request(authorization)
-    assert second in (200, 401), ("unexpected duplicate request status", second)
-    if second == 200:
-        print("BASELINE: repeated identical Digest Authorization accepted (HTTP 200).")
-        print("This is NOT proof that CVE-2026-7363X is fixed.")
-    else:
-        print("BASELINE: repeated identical Digest Authorization rejected (HTTP 401).")
-        print("This alone does NOT establish CVE-2026-7363X remediation.")
+    assert second == 401, (
+        "Digest replay accepted despite AuthDigestNcCheck On", second
+    )
+    print("PASS: nonce-count checking rejects an identical Digest request")
+    print("This targeted regression does NOT establish CVE-2026-7363X remediation.")
 
 
 if __name__ == "__main__":
