@@ -51,6 +51,7 @@ jobs:
           set -euo pipefail
           docker run --rm --cpus=2 --memory=2g \
             --mount type=bind,source="$PWD/output",target=/build,readonly \
+            --mount type=bind,source="$PWD/apache2/focal/tools",target=/tests,readonly \
             --env DEBIAN_FRONTEND=noninteractive \
             ubuntu:20.04 bash -euc '
               apt-get update
@@ -64,6 +65,14 @@ jobs:
               apache2ctl -V > /tmp/version.txt
               grep -q "mpm_event_module" /tmp/modules.txt || grep -q "mpm_prefork_module" /tmp/modules.txt
               grep -q "Server version: Apache/2.4.41" /tmp/version.txt || apache2ctl -v
+              # HTTP response header regressions after CVE-2024-42516.
+              # Run only inside this disposable CI container.
+              printf "unibo-focal-http-headers\\n" > /var/www/html/unibo-ci-test.txt
+              echo ServerName localhost > /etc/apache2/conf-available/unibo-ci.conf
+              a2enconf unibo-ci
+              apache2ctl -t
+              apache2ctl -k start
+              python3 /tests/test-http-headers.py
               dpkg-query -W apache2 apache2-bin apache2-data apache2-utils
               cat /tmp/version.txt | head -n 16
             '

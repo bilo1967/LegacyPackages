@@ -344,14 +344,13 @@ for name in jammy_series:
     with series_path.open("a") as f:
         f.write(f"{dest_name}\n")
     decisions.append((name, "applied",
-                      "Focal strcasecmp context adapted (no security changes)"
+                      "Focal context adapted; see source diff (fuzz=0)"
                       if name in ("CVE-2026-44119.patch",
                                   "CVE-2024-43204-pre1.patch",
                                   "CVE-2024-43204.patch",
                                   "CVE-2025-23048-regression.patch",
                                   "CVE-2026-44631.patch",
-                                  "CVE-2026-106023.patch",
-                                  "CVE-2024-42516.patch")
+                                  "CVE-2026-106023.patch")
                       else "zero-fuzz sequential patch"))
     current.add(name)
 
