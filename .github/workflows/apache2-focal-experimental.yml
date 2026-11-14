@@ -17,6 +17,7 @@ on:
       - 'apache2/focal/tools/test-apxs-abi.py'
       - 'apache2/focal/tools/test-digest-auth.py'
       - 'apache2/focal/tools/audit-digest-port.py'
+      - 'apache2/focal/tools/audit-mod-md.py'
       - 'apache2/focal/tools/test-digest-replay.py'
 
 permissions:
