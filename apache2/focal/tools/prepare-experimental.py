@@ -123,7 +123,7 @@ for name in jammy_series:
         # The fourth hunk must retain the 304-specific header allowlist
         # in both removed and added sections, with only indentation changed.
         headers = list(re.finditer(
-            r"(?m)^@@ -[0-9]+(?:,[0-9]+)? \\+[0-9]+(?:,[0-9]+)? @@[^\\n]*\\n",
+            r"(?m)^@@ -[0-9]+(?:,[0-9]+)? \+[0-9]+(?:,[0-9]+)? @@[^\n]*\n",
             patched,
         ))
         if len(headers) != 4:
@@ -147,7 +147,7 @@ for name in jammy_series:
         increase = len(body_304.splitlines()) - 1
         hunk_header = patched[fourth.start():fourth.end()]
         count_header = re.match(
-            r"@@ -(\\d+),(\\d+) \\+(\\d+),(\\d+) @@(.*)\\n",
+            r"@@ -(\d+),(\d+) \+(\d+),(\d+) @@(.*)\n",
             hunk_header,
         )
         if not count_header:
