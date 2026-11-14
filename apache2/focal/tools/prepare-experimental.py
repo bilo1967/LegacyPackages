@@ -77,7 +77,7 @@ for name in jammy_series:
         if http_src.count(old_calls) != 1:
             sys.exit("Cannot safely adapt CVE-2024-42516: keepalive block not unique")
         hunk_match = re.search(
-            r"(?m)^@@ -1449,10 \\+1355,6 @@[^\\n]*\\n",
+            r"(?m)^@@ -1449,10 \+1355,6 @@[^\n]*\n",
             original,
         )
         if not hunk_match:
