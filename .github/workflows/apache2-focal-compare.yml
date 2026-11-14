@@ -9,7 +9,7 @@ on:
       - 'apache2/focal/tools/**'
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   compare:
@@ -42,6 +42,19 @@ jobs:
         run: |
           set -euo pipefail
           python3 apache2/focal/tools/compare-patches.py work/focal/apache2-2.4.41 work/jammy/apache2-2.4.52 report
+      - name: Publish patch comparison report to branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p apache2/focal/analysis
+          cp report/report.md apache2/focal/analysis/jammy-patch-compare.md
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add apache2/focal/analysis/jammy-patch-compare.md
+          if ! git diff --cached --quiet; then
+            git commit -m "ci(focal): update Jammy patch comparison report"
+            git push origin HEAD:backport/focal
+          fi
       - name: Upload comparison as analysis only
         uses: actions/upload-artifact@v4
         with:
