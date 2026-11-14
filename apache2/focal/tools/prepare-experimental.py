@@ -289,6 +289,62 @@ for name in jammy_series:
         original = original.replace(old_hash_hunk, new_hash_hunk, 1)
         patch_for_apply = out / "adapted-CVE-2025-23048-regression.patch"
         patch_for_apply.write_text(original.replace(old_hunk, new_hunk, 1))
+    if name == "CVE-2026-7363X.patch":
+        # Port the entire patched Jammy Digest implementation at once. Nine
+        # conflicting hunks in Focal cannot be applied in isolation: nonce,
+        # client-state locking and authentication flow must remain coordinated.
+        # Jammy's source has already received the complete quilt series from
+        # apt-get source. Keep other Focal modules untouched and retain this
+        # adaptation as a reviewable, exact zero-fuzz quilt diff.
+        rel = pathlib.Path("modules/aaa/mod_auth_digest.c")
+        focal_before = (focal / rel).read_text()
+        jammy_after = (jammy / rel).read_text()
+        required = ("check_and_record_nonce", "client_generate",
+                    "client_exists", "APR_HAS_SHARED_MEMORY",
+                    "apr_atomic")
+        if (any(token not in jammy_after for token in required)
+                or "check_and_record_nonce" in focal_before):
+            sys.exit("Digest security source not in expected pre/post-patch state")
+        # Focal uses standard strcasecmp(), unlike the newer ap_cstr_casecmp()
+        # helper in Jammy. Its comparison semantics are equivalent here.
+        jammy_after = re.sub(r"\\bap_cstr_casecmp\\s*\\(", "strcasecmp(",
+                             jammy_after)
+        # Preserve the upstream APR random+shared-memory configure prerequisite.
+        # The source-level #error alone does not prevent autoconf from enabling
+        # an unsupported module on a different APR build.
+        configure_rel = pathlib.Path("modules/aaa/config.m4")
+        focal_config = (focal / configure_rel).read_text()
+        old_config = (
+            '  if test $ac_cv_define_APR_HAS_RANDOM = "no"; then\\n'
+            '    echo "You need APR random support to use mod_auth_digest."\\n'
+            '    echo "Look at APR configure options --with-egd and --with-devrandom."\\n'
+        )
+        new_config = (
+            '  APR_CHECK_APR_DEFINE(APR_HAS_SHARED_MEMORY)\\n'
+            '  if test "${ac_cv_define_APR_HAS_RANDOM}X${ac_cv_define_APR_HAS_SHARED_MEMORY}" != "yesXyes"; then\\n'
+            '    AC_MSG_NOTICE([mod_auth_digest requires APR with random and shared memory support])\\n'
+        )
+        # Actual newlines (not backslash-n text) are required in config.m4.
+        old_config = old_config.replace("\\n", "\n")
+        new_config = new_config.replace("\\n", "\n")
+        if focal_config.count(old_config) != 1:
+            sys.exit("Digest configure APR prerequisite cannot be adapted exactly")
+        config_after = focal_config.replace(old_config, new_config, 1)
+        module_diff = "".join(difflib.unified_diff(
+            focal_before.splitlines(keepends=True),
+            jammy_after.splitlines(keepends=True),
+            fromfile="a/" + str(rel), tofile="b/" + str(rel), n=3,
+        ))
+        config_diff = "".join(difflib.unified_diff(
+            focal_config.splitlines(keepends=True),
+            config_after.splitlines(keepends=True),
+            fromfile="a/" + str(configure_rel),
+            tofile="b/" + str(configure_rel), n=3,
+        ))
+        if not module_diff.startswith("--- a/modules/aaa/mod_auth_digest.c") or not config_diff.startswith("--- a/modules/aaa/config.m4"):
+            sys.exit("Complete Digest security diff not generated")
+        patch_for_apply = out / "adapted-CVE-2026-7363X.patch"
+        patch_for_apply.write_text(config_diff + module_diff)
     # This Jammy security feature needs a coordinated parser/headers backport.
     # A patch can apply cleanly but use the new flag without importing its
     # definition and enforcement. Do not produce an incomplete security fix.
@@ -350,7 +406,8 @@ for name in jammy_series:
                                   "CVE-2024-43204.patch",
                                   "CVE-2025-23048-regression.patch",
                                   "CVE-2026-44631.patch",
-                                  "CVE-2026-106023.patch")
+                                  "CVE-2026-106023.patch",
+                                  "CVE-2026-7363X.patch")
                       else "zero-fuzz sequential patch"))
     current.add(name)
 
