@@ -1,0 +1,56 @@
+name: Inspect Apache Focal parser patch dependencies
+on:
+  push:
+    branches: [backport/focal]
+    paths:
+      - '.github/workflows/apache2-focal-parser-inspect.yml'
+      - 'apache2/focal/tools/inspect-44119.py'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  inspect:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compare original Focal with security patch contexts
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p report
+          docker run --rm --cpus=2 --memory=2g \
+            --mount type=bind,source="$PWD",target=/repo \
+            --workdir /repo \
+            --env DEBIAN_FRONTEND=noninteractive \
+            ubuntu:20.04 bash -euc '
+              sed -n "s/^deb /deb-src /p" /etc/apt/sources.list >> /etc/apt/sources.list
+              apt-get update
+              apt-get install -y --no-install-recommends dpkg-dev patch python3 ca-certificates
+              mkdir -p /tmp/focal /tmp/jammy /tmp/out
+              (cd /tmp/focal && apt-get source apache2=2.4.41-4ubuntu3.23)
+              printf "deb-src http://archive.ubuntu.com/ubuntu jammy main universe\ndeb-src http://archive.ubuntu.com/ubuntu jammy-updates main universe\ndeb-src http://security.ubuntu.com/ubuntu jammy-security main universe\n" > /etc/apt/sources.list.d/jammy-source.list
+              apt-get update
+              (cd /tmp/jammy && apt-get source apache2=2.4.52-1ubuntu4.27)
+              python3 /repo/apache2/focal/tools/prepare-experimental.py /tmp/focal/apache2-2.4.41 /tmp/jammy/apache2-2.4.52 /tmp/out
+              python3 /repo/apache2/focal/tools/inspect-44119.py /tmp/focal/apache2-2.4.41 /tmp/jammy/apache2-2.4.52 /tmp/out
+              cp /tmp/out/expression-parser-diagnostics.txt /repo/report/
+            '
+      - name: Publish conflicting source contexts
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p apache2/focal/analysis
+          cp report/expression-parser-diagnostics.txt apache2/focal/analysis/expression-parser-diagnostics.txt
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add apache2/focal/analysis/expression-parser-diagnostics.txt
+          if ! git diff --cached --quiet; then
+            git commit -m "ci(focal): record CVE-2026-44119 source conflicts"
+            git push origin HEAD:backport/focal
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: focal-expression-security-context
+          path: report/
+          retention-days: 7
