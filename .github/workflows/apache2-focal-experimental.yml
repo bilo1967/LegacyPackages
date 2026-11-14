@@ -330,35 +330,70 @@ jobs:
               python3 /tests/test-digest-auth.py verify
               python3 /tests/test-digest-replay.py
             '
-      - name: Probe Jammy Digest CVE implementation against Focal Apache headers
+      - name: Probe Jammy Digest CVE implementation and runtime on Focal
         shell: bash
         run: |
           set -euo pipefail
           docker run --rm --cpus=2 --memory=2g \
-            --mount type=bind,source="$PWD/output",target=/build,readonly \
             --mount type=bind,source="$PWD/output",target=/results \
+            --mount type=bind,source="$PWD/apache2/focal/tools",target=/tests,readonly \
             --env DEBIAN_FRONTEND=noninteractive \
             ubuntu:20.04 bash -euc '
               apt-get update
               apt-get install -y --no-install-recommends \
-                /build/apache2-data_*.deb \
-                /build/apache2-utils_*.deb \
-                /build/apache2-bin_*.deb \
-                /build/apache2_*.deb \
-                /build/apache2-dev_*.deb \
-                build-essential
+                /results/apache2-data_*.deb \
+                /results/apache2-utils_*.deb \
+                /results/apache2-bin_*.deb \
+                /results/apache2_*.deb \
+                /results/apache2-dev_*.deb \
+                build-essential python3
               mkdir -p /tmp/digest-probe
-              cp /build/digest-jammy-candidate.c /tmp/digest-probe/mod_auth_digest.c
+              cp /results/digest-jammy-candidate.c /tmp/digest-probe/mod_auth_digest.c
               cd /tmp/digest-probe
               set +e
               apxs -c mod_auth_digest.c > /results/digest-candidate-compile.log 2>&1
-              rc=$?
+              compile_rc=$?
               set -e
-              printf "Jammy Digest candidate on Focal apxs: exit=%s\\n" "$rc" \
-                | tee /results/digest-candidate-result.txt
-              tail -n 60 /results/digest-candidate-compile.log
-              # Diagnostic only: never install this source into production
-              # packages, even when the candidate happens to compile.
+              printf "compile_exit=%s\n" "$compile_rc" \
+                > /results/digest-candidate-result.txt
+              if [ "$compile_rc" -ne 0 ]; then
+                echo "Full Jammy Digest source did not compile against Focal headers" \
+                  | tee -a /results/digest-candidate-result.txt
+                tail -n 80 /results/digest-candidate-compile.log
+                exit 0
+              fi
+              test -f .libs/mod_auth_digest.so || {
+                echo "apxs returned success but no module .so found" \
+                  | tee -a /results/digest-candidate-result.txt
+                exit 0
+              }
+              # This replacement exists only in the disposable container;
+              # never copy it into the produced experimental .deb files.
+              cp .libs/mod_auth_digest.so /usr/lib/apache2/modules/mod_auth_digest.so
+              echo ServerName localhost > /etc/apache2/conf-available/unibo-ci.conf
+              a2enconf unibo-ci
+              a2enmod auth_digest
+              set +e
+              (
+                python3 /tests/test-digest-auth.py configure &&
+                apache2ctl -t &&
+                apache2ctl -M | grep -q auth_digest_module &&
+                apache2ctl -k start &&
+                python3 /tests/test-digest-auth.py verify &&
+                python3 /tests/test-digest-replay.py
+              ) > /results/digest-candidate-runtime.log 2>&1
+              runtime_rc=$?
+              set -e
+              printf "runtime_exit=%s\n" "$runtime_rc" \
+                >> /results/digest-candidate-result.txt
+              cat /results/digest-candidate-result.txt
+              tail -n 90 /results/digest-candidate-runtime.log
+              if [ "$runtime_rc" -ne 0 ] && [ -f /var/log/apache2/error.log ]; then
+                tail -n 70 /var/log/apache2/error.log \
+                  >> /results/digest-candidate-runtime.log
+              fi
+              # Diagnostic only: even a clean runtime probe does not
+              # establish patch applicability or full CVE remediation.
             '
       - name: Commit exact experimental patch manifest
         shell: bash
