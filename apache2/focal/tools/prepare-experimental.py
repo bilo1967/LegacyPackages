@@ -61,6 +61,33 @@ for name in jammy_series:
         patched = original.replace(jammy_cmp, focal_cmp)
         patch_for_apply = out / ("adapted-" + name)
         patch_for_apply.write_text(patched)
+    if name == "CVE-2025-23048-regression.patch":
+        # Ubuntu Jammy has an SSLKEYLOGFILE field that is absent from Focal.
+        # Anchor the new SNI policy field on the shared struct closing line,
+        # leaving the complete security implementation otherwise unchanged.
+        original = upstream.read_text()
+        old_hunk = (
+            "@@ -628,6 +641,8 @@ typedef struct {\n"
+            "     /* Used for logging if SSLKEYLOGFILE is set at startup. */\n"
+            "     apr_file_t      *keylog_file;\n"
+            " #endif\n"
+            "+\n"
+            "+    modssl_snivhpolicy_t snivh_policy;\n"
+            " } SSLModConfigRec;\n"
+        )
+        new_hunk = (
+            "@@ -620,1 +633,3 @@ typedef struct {\n"
+            "+\n"
+            "+    modssl_snivhpolicy_t snivh_policy;\n"
+            " } SSLModConfigRec;\n"
+        )
+        focal_ssl_header = (focal / "modules/ssl/ssl_private.h").read_text()
+        if (original.count(old_hunk) != 1
+                or focal_ssl_header.count("} SSLModConfigRec;") != 1
+                or "modssl_snivhpolicy_t snivh_policy;" in focal_ssl_header):
+            sys.exit("Unexpected SSLModConfigRec structure in CVE-2025-23048 regression")
+        patch_for_apply = out / "adapted-CVE-2025-23048-regression.patch"
+        patch_for_apply.write_text(original.replace(old_hunk, new_hunk, 1))
     # This Jammy security feature needs a coordinated parser/headers backport.
     # A patch can apply cleanly but use the new flag without importing its
     # definition and enforcement. Do not produce an incomplete security fix.
@@ -103,7 +130,8 @@ for name in jammy_series:
                       "Focal strcasecmp context adapted (no security changes)"
                       if name in ("CVE-2026-44119.patch",
                                   "CVE-2024-43204-pre1.patch",
-                                  "CVE-2024-43204.patch")
+                                  "CVE-2024-43204.patch",
+                                  "CVE-2025-23048-regression.patch")
                       else "zero-fuzz sequential patch"))
     current.add(name)
 
