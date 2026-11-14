@@ -33,7 +33,7 @@ jobs:
               apt-get build-dep -y apache2
               mkdir -p /tmp/focal /tmp/jammy /tmp/report
               (cd /tmp/focal && apt-get source apache2=2.4.41-4ubuntu3.23)
-              printf "deb-src http://archive.ubuntu.com/ubuntu jammy main universe\n" > /etc/apt/sources.list.d/jammy-source.list
+              printf "deb-src http://archive.ubuntu.com/ubuntu jammy main universe\ndeb-src http://archive.ubuntu.com/ubuntu jammy-updates main universe\ndeb-src http://security.ubuntu.com/ubuntu jammy-security main universe\n" > /etc/apt/sources.list.d/jammy-source.list
               apt-get update
               (cd /tmp/jammy && apt-get source apache2=2.4.52-1ubuntu4.27)
               rm /etc/apt/sources.list.d/jammy-source.list
