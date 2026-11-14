@@ -151,10 +151,12 @@ for name in jammy_series:
                       else "zero-fuzz sequential patch"))
     current.add(name)
 
-# Verify the policy-hash field in the actual patched Focal SSL struct.
-# The compiler needs this field even when HAVE_TLSEXT is not defined.
+# Verify/repair the SNI hash member in the actual Focal structure.
+# It is required by ssl_init_Module regardless of HAVE_TLSEXT.  Keep
+# the Focal-only layout adjustment as a separate, auditable quilt patch.
 if "CVE-2025-23048-regression.patch" in current:
-    ssl_header = (focal / "modules/ssl/ssl_private.h").read_text()
+    ssl_path = focal / "modules/ssl/ssl_private.h"
+    ssl_header = ssl_path.read_text()
     start = ssl_header.find("struct SSLSrvConfigRec {")
     if start < 0:
         sys.exit("Missing SSLSrvConfigRec in patched Focal SSL header")
@@ -162,16 +164,55 @@ if "CVE-2025-23048-regression.patch" in current:
     if end < 0:
         sys.exit("Unterminated SSLSrvConfigRec")
     definition = ssl_header[start:end]
-    member = "const char      *sni_policy_hash;"
+    member = "    const char      *sni_policy_hash;\n"
+    anchor = ("#ifdef HAVE_TLSEXT\n"
+              "    ssl_enabled_t    strict_sni_vhost_check;\n"
+              "#endif\n")
+    if definition.count(member) == 0:
+        if ssl_header.count(member) != 0 or definition.count(anchor) != 1:
+            sys.exit("Unexpected sni_policy_hash placement or SNI struct layout")
+        before = ssl_header
+        after = before[:start] + definition.replace(
+            anchor, anchor + member, 1
+        ) + before[end:]
+        diff = "".join(difflib.unified_diff(
+            before.splitlines(keepends=True),
+            after.splitlines(keepends=True),
+            fromfile="a/modules/ssl/ssl_private.h",
+            tofile="b/modules/ssl/ssl_private.h",
+        ))
+        if not diff.startswith("--- a/modules/ssl/ssl_private.h"):
+            sys.exit("Cannot generate SNI hash member patch")
+        patch_name = "unibo-focal-sni-policy-hash-member.patch"
+        dest = focal / "debian/patches" / patch_name
+        dest.write_text(diff)
+        result = subprocess.run(
+            ["patch", "--batch", "--forward", "--fuzz=0", "-p1",
+             "-i", str(dest)],
+            cwd=focal, text=True, capture_output=True, timeout=60,
+        )
+        if result.returncode:
+            sys.exit("Failed SNI hash layout backport: "
+                     + result.stdout + result.stderr)
+        with series_path.open("a") as file:
+            file.write(patch_name + "\n")
+        decisions.append((
+            patch_name, "applied",
+            "Focal-only SSLSrvConfigRec SNI policy hash member"
+        ))
+        ssl_header = ssl_path.read_text()
+        definition = ssl_header[start:ssl_header.find("};", start)]
     if definition.count(member) != 1:
-        sys.exit("SNI patch incomplete: expected sni_policy_hash in SSLSrvConfigRec, got "
-                 + str(definition.count(member)) + ":\n" + definition)
-    context = definition.index(member)
-    strict = definition.index("strict_sni_vhost_check")
-    if not (strict < definition.index("#endif", strict) < context):
-        sys.exit("SNI policy hash must be unconditional in Focal SSLSrvConfigRec")
+        sys.exit("SNI hash member missing or duplicated in SSLSrvConfigRec:\n"
+                 + definition)
+    strict = definition.find("strict_sni_vhost_check")
+    if strict < 0 or not (
+        strict < definition.find("#endif", strict)
+        < definition.find(member)
+    ):
+        sys.exit("SNI hash member is not unconditional in SSLSrvConfigRec")
     (out / "sni-struct-check.txt").write_text(
-        "Verified policy hash in SSLSrvConfigRec:\n" + definition + "\n"
+        "Verified SNI policy hash field:\n" + definition + "\n"
     )
 
 # Focal needs an explicit declaration visible at the point where mod_ssl.c
