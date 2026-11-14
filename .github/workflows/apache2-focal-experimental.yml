@@ -217,6 +217,14 @@ jobs:
                 openssl ssl-cert python3
               a2enmod ssl rewrite
               a2ensite default-ssl
+              openssl req -x509 -newkey rsa:2048 -nodes -days 1 \
+                -keyout /etc/ssl/private/unibo-ci.key \
+                -out /etc/ssl/certs/unibo-ci.pem \
+                -subj /CN=localhost -addext subjectAltName=DNS:localhost
+              sed -i \
+                -e s@/etc/ssl/certs/ssl-cert-snakeoil.pem@/etc/ssl/certs/unibo-ci.pem@ \
+                -e s@/etc/ssl/private/ssl-cert-snakeoil.key@/etc/ssl/private/unibo-ci.key@ \
+                /etc/apache2/sites-available/default-ssl.conf
               echo ServerName localhost > /etc/apache2/conf-available/unibo-ci.conf
               a2enconf unibo-ci
               printf "unibo-focal-http-headers\\n" > /var/www/html/unibo-ci-test.txt

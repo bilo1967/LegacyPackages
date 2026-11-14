@@ -5,17 +5,20 @@ import pathlib
 import ssl
 import sys
 import time
+import urllib.parse
 
-CERT = "/etc/ssl/certs/ssl-cert-snakeoil.pem"
-EXPECTED = b"unibo-focal-http-headers\\n"
+CERT = "/etc/ssl/certs/unibo-ci.pem"
+EXPECTED = b"unibo-focal-http-headers\n"
 
 
 def configure():
     # Server-context rewrite applies to both the default HTTP and HTTPS vhosts.
     conf = pathlib.Path("/etc/apache2/conf-available/unibo-rewrite.conf")
     conf.write_text(
-        "RewriteEngine On\\n"
-        "RewriteRule ^/unibo-ci-old$ /unibo-ci-test.txt [R=302,L]\\n"
+        "<Directory /var/www/html>\n"
+        "RewriteEngine On\n"
+        "RewriteRule ^unibo-ci-old$ /unibo-ci-test.txt [R=302,L]\n"
+        "</Directory>\n"
     )
     pathlib.Path("/etc/apache2/conf-enabled/unibo-rewrite.conf").symlink_to(conf)
 
@@ -50,7 +53,7 @@ def verify():
         assert body == EXPECTED, ("GET body", secure, body)
         code, headers, body = query(secure, "/unibo-ci-old")
         assert code == 302, ("rewrite redirect", secure, code, body)
-        assert headers.get("location") == "/unibo-ci-test.txt", headers
+        assert urllib.parse.urlsplit(headers.get("location", "")).path == "/unibo-ci-test.txt", headers
     print("PASS: HTTP and verified local TLS with mod_rewrite redirects")
 
 
