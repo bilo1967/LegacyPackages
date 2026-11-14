@@ -45,6 +45,28 @@ jobs:
               cp /tmp/report/experimental-manifest.md /repo/output/
               sha256sum /repo/output/*.deb > /repo/output/SHA256SUMS
             '
+      - name: Smoke-test experimental packages in disposable Focal container
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm --cpus=2 --memory=2g \
+            --mount type=bind,source="$PWD/output",target=/build,readonly \
+            --env DEBIAN_FRONTEND=noninteractive \
+            ubuntu:20.04 bash -euc '
+              apt-get update
+              apt-get install -y --no-install-recommends \
+                /build/apache2-data_*.deb \
+                /build/apache2-utils_*.deb \
+                /build/apache2-bin_*.deb \
+                /build/apache2_*.deb
+              apache2ctl -t
+              apache2ctl -M > /tmp/modules.txt
+              apache2ctl -V > /tmp/version.txt
+              grep -q "mpm_event_module" /tmp/modules.txt || grep -q "mpm_prefork_module" /tmp/modules.txt
+              grep -q "Server version: Apache/2.4.41" /tmp/version.txt || apache2ctl -v
+              dpkg-query -W apache2 apache2-bin apache2-data apache2-utils
+              cat /tmp/version.txt | head -n 16
+            '
       - name: Commit exact experimental patch manifest
         shell: bash
         run: |
