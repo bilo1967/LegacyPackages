@@ -135,6 +135,12 @@ for name in jammy_series:
                       else "zero-fuzz sequential patch"))
     current.add(name)
 
+# The SNI policy feature must not be delivered without its strict-policy
+# regression fix. Abort rather than packaging a partially corrected policy.
+if ("CVE-2025-23048-regression.patch" in current
+        and "CVE-2025-23048-regression-2.patch" not in current):
+    sys.exit("SNI policy regression patch incomplete: missing regression-2")
+
 # Verify the entire expression parser protection is present if imported.
 if "CVE-2026-44119.patch" in current:
     expr_header = (focal / "include/ap_expr.h").read_text()
