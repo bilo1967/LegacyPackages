@@ -441,7 +441,7 @@ for name in jammy_series:
             "child exit accounting")
         # Verify full upstream intent, not only individual line matches.
         if (after.count("static APR_INLINE int should_enable_listensocks(void)") != 1
-                or after.count("should_enable_listensocks()") != 4
+                or after.count("should_enable_listensocks()") != 3
                 or "                if (ps->quiescing != 2)" not in after
                 or after.count("    for (;;) {\n") < before.count("    for (;;) {\n") + 1):
             sys.exit("Incomplete event listener deadlock adaptation")
