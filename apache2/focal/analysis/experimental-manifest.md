@@ -2,7 +2,7 @@
 
 Not for production use. No security completeness claim. Jammy source patches are not equivalent to verified Focal ESM.
 
-Version: \`2.4.41-4ubuntu3.23+unibo0~experiment1\`. Applied: 62; skipped: 5.
+Version: \`2.4.41-4ubuntu3.23+unibo0~experiment1\`. Applied: 63; skipped: 4.
 
 | Patch | Decision | Reason |
 |---|---|---|
@@ -50,7 +50,7 @@ Version: \`2.4.41-4ubuntu3.23+unibo0~experiment1\`. Applied: 62; skipped: 5.
 | \`CVE-2026-44185.patch\` | applied | zero-fuzz sequential patch |
 | \`CVE-2026-44186.patch\` | applied | zero-fuzz sequential patch |
 | \`CVE-2026-44631.patch\` | applied | Focal context adapted; see source diff (fuzz=0) |
-| \`CVE-2026-48913.patch\` | skipped | checking file modules/http2/mod_proxy_http2.c |
+| \`CVE-2026-48913.patch\` | applied | Focal context adapted; see source diff (fuzz=0) |
 | \`CVE-2026-48913-2.patch\` | applied | zero-fuzz sequential patch |
 | \`CVE-2026-56154.patch\` | applied | zero-fuzz sequential patch |
 | \`CVE-2026-57941.patch\` | applied | zero-fuzz sequential patch |
