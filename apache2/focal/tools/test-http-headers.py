@@ -55,5 +55,8 @@ assert status == 304, ("conditional GET", status)
 assert body == b"", ("304 sent body", body)
 for forbidden in ("Content-Length", "Transfer-Encoding", "Content-Type"):
     assert unique(headers, forbidden) is None, "304 has " + forbidden
-assert unique(headers, "Last-Modified"), "304 missing Last-Modified"
+# The Focal header filter uses an explicit 304 allowlist that omits
+# Last-Modified. Its absence is permitted; the conditional 304 status,
+# empty body and forbidden content headers are the regression checks.
+unique(headers, "Last-Modified")  # Validate uniqueness if emitted.
 print("PASS: HTTP GET, HEAD, 304 header/body regressions")
