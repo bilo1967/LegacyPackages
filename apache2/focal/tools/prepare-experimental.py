@@ -289,6 +289,89 @@ for name in jammy_series:
         original = original.replace(old_hash_hunk, new_hash_hunk, 1)
         patch_for_apply = out / "adapted-CVE-2025-23048-regression.patch"
         patch_for_apply.write_text(original.replace(old_hunk, new_hunk, 1))
+    if name == "handle-children-killed-pathologically.patch":
+        # The two upstream first hunks add a single function-local counter,
+        # but Focal server_main_loop() has a different signature. Rebase that
+        # declaration by function identity while preserving EACH full second
+        # upstream hunk (restart/anti-fork-storm logic) unmodified.
+        import tempfile
+        upstream_text = upstream.read_text()
+        files = ("server/mpm/event/event.c", "server/mpm/worker/worker.c")
+        rebased_diffs = []
+        expected_added = "+    int successive_kills = 0;\n"
+        for rel_path in files:
+            begin = upstream_text.find("--- a/" + rel_path + "\n")
+            end_header = upstream_text.find("+++ b/" + rel_path + "\n", begin)
+            if begin < 0 or end_header < 0:
+                sys.exit("Missing MPM patch file section: " + rel_path)
+            first = re.search(
+                r"(?m)^@@ -\d+(?:,\d+)? \+\d+(?:,\d+)? @@[^\n]*\n",
+                upstream_text[end_header:]
+            )
+            if not first:
+                sys.exit("Missing initial MPM hunk: " + rel_path)
+            first_pos = end_header + first.start()
+            second = re.search(
+                r"(?m)^@@ -\d+(?:,\d+)? \+\d+(?:,\d+)? @@[^\n]*\n",
+                upstream_text[first_pos + 3:]
+            )
+            if not second:
+                sys.exit("Missing restart MPM hunk: " + rel_path)
+            second_pos = first_pos + 3 + second.start()
+            next_file = upstream_text.find("\ndiff --git ", second_pos)
+            end_file = len(upstream_text) if next_file < 0 else next_file + 1
+            first_hunk = upstream_text[first_pos:second_pos]
+            second_hunk = upstream_text[second_pos:end_file]
+            if (first_hunk.count(expected_added) != 1
+                    or second_hunk.count("successive_kills") < 3
+                    or second_hunk.count("+            ++remaining_children_to_start;") != 1):
+                sys.exit("Unexpected MPM restart backport patch: " + rel_path)
+            original_src = (focal / rel_path).read_text()
+            # Patch the complete upstream restart hunk in isolation. We do
+            # not loosen context or accept fuzz; copying into a temporary
+            # tree prevents any partial modifications to the build source.
+            with tempfile.TemporaryDirectory() as temp_root:
+                temp = pathlib.Path(temp_root)
+                dest = temp / rel_path
+                dest.parent.mkdir(parents=True, exist_ok=True)
+                dest.write_text(original_src)
+                retained_patch = temp / "upstream-restart.patch"
+                retained_patch.write_text(
+                    "--- a/" + rel_path + "\n"
+                    "+++ b/" + rel_path + "\n" + second_hunk
+                )
+                check = subprocess.run(
+                    ["patch", "--batch", "--forward", "--fuzz=0",
+                     "-p1", "-i", str(retained_patch)],
+                    cwd=temp, text=True, capture_output=True, timeout=60
+                )
+                if check.returncode:
+                    sys.exit("Upstream MPM restart logic cannot be rebased: "
+                             + rel_path + "\n" + check.stdout + check.stderr)
+                after = dest.read_text()
+            signature = re.compile(
+                r"(?m)^static void server_main_loop\([^\n]*\)\n\{\n"
+            )
+            if len(signature.findall(after)) != 1:
+                sys.exit("Focal MPM server_main_loop signature ambiguous: " + rel_path)
+            after = signature.sub(
+                lambda match: match.group(0) + "    int successive_kills = 0;\n",
+                after, count=1
+            )
+            if after.count("int successive_kills = 0;") != 1:
+                sys.exit("MPM successive kill counter missing or duplicated")
+            diff = "".join(difflib.unified_diff(
+                original_src.splitlines(keepends=True),
+                after.splitlines(keepends=True),
+                fromfile="a/" + rel_path, tofile="b/" + rel_path, n=3
+            ))
+            if (not diff.startswith("--- a/" + rel_path + "\n")
+                    or diff.count("+    int successive_kills = 0;") != 1
+                    or 'children are killed successively!' not in diff):
+                sys.exit("MPM full-fix diff incomplete: " + rel_path)
+            rebased_diffs.append(diff)
+        patch_for_apply = out / "adapted-handle-children-killed-pathologically.patch"
+        patch_for_apply.write_text("".join(rebased_diffs))
     if name == "CVE-2026-43951.patch":
         # Both HTTP/1.x and HTTP/2 need this same OOB-read fix. The
         # content_languages array can grow inside the while loop, so its
@@ -457,7 +540,8 @@ for name in jammy_series:
                                   "CVE-2026-44631.patch",
                                   "CVE-2026-106023.patch",
                                   "CVE-2026-7363X.patch",
-                                  "CVE-2026-43951.patch")
+                                  "CVE-2026-43951.patch",
+                                  "handle-children-killed-pathologically.patch")
                       else "zero-fuzz sequential patch"))
     current.add(name)
 
