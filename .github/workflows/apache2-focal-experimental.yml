@@ -50,10 +50,10 @@ jobs:
               rm /etc/apt/sources.list.d/jammy-source.list
               python3 /repo/apache2/focal/tools/prepare-experimental.py \
                 /tmp/focal/apache2-2.4.41 /tmp/jammy/apache2-2.4.52 /tmp/report
-              python3 /repo/apache2/focal/tools/audit-digest-port.py \
-                /tmp/focal/apache2-2.4.41 \
-                /tmp/jammy/apache2-2.4.52/debian/patches/CVE-2026-7363X.patch \
-                /repo/output/digest-porting-audit.md
+              # Digest is now applied by prepare-experimental.py. Do not run
+              # the pre-port conflict audit against a source already patched.
+              grep -q "CVE-2026-7363X.patch.*| applied" \
+                /tmp/report/experimental-manifest.md
               # Keep a standalone Jammy Digest implementation as an ABI/porting
               # candidate. Never install it in the experimental Apache packages.
               test -f /tmp/jammy/apache2-2.4.52/modules/aaa/mod_auth_digest.c
@@ -401,11 +401,9 @@ jobs:
           set -euo pipefail
           mkdir -p apache2/focal/analysis
           cp output/experimental-manifest.md apache2/focal/analysis/experimental-manifest.md
-          cp output/digest-porting-audit.md apache2/focal/analysis/digest-porting-audit.md
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add apache2/focal/analysis/experimental-manifest.md \
-            apache2/focal/analysis/digest-porting-audit.md
+          git add apache2/focal/analysis/experimental-manifest.md
           if ! git diff --cached --quiet; then
             git commit -m "ci(focal): publish patch manifest and Digest port conflicts"
             git push origin HEAD:backport/focal
