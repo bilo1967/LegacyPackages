@@ -47,6 +47,8 @@ jobs:
           git add apache2/focal/analysis/expression-parser-diagnostics.txt
           if ! git diff --cached --quiet; then
             git commit -m "ci(focal): record CVE-2026-44119 source conflicts"
+            git fetch origin backport/focal
+            git rebase origin/backport/focal
             git push origin HEAD:backport/focal
           fi
       - uses: actions/upload-artifact@v4
