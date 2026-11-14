@@ -9,7 +9,7 @@ on:
       - 'apache2/focal/tools/probe-mod-md-build.py'
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   probe:
@@ -42,8 +42,58 @@ jobs:
               (cd /tmp/jammy && apt-get source apache2=2.4.52-1ubuntu4.27)
               python3 /repo/apache2/focal/tools/probe-mod-md-build.py \
                 /tmp/jammy/apache2-2.4.52 /repo/output/mod-md-compatibility
+              # Runtime smoke test only after the complete module has linked.
+              mod=/tmp/jammy/apache2-2.4.52/modules/md/.libs/mod_md.so
+              test -s "$mod"
+              ldd "$mod" > /repo/output/mod-md-compatibility/ldd.txt
+              if grep -q "not found" /repo/output/mod-md-compatibility/ldd.txt; then
+                echo "Unresolved candidate mod_md dynamic dependency"
+                exit 1
+              fi
+              echo "ServerName localhost" > /etc/apache2/conf-available/unibo-md-ci.conf
+              a2enconf unibo-md-ci
+              a2dismod md || true
+              printf "LoadModule md_module %s\\n" "$mod" \
+                > /etc/apache2/mods-available/md_candidate.load
+              a2enmod md_candidate
+              apache2ctl -t
+              apache2ctl -M | grep -q md_module
+              printf "mod-md-candidate-load-ok\\n" > /var/www/html/mod-md-probe.txt
+              apache2ctl -k start
+              python3 -c "import urllib.request; assert urllib.request.urlopen(\"http://127.0.0.1/mod-md-probe.txt\", timeout=5).read().strip() == b\"mod-md-candidate-load-ok\""
+              apache2ctl -k stop
+              printf "\\n## Runtime load verification\\n\\n" \
+                >> /repo/output/mod-md-compatibility/report.md
+              printf "COMPILED, linked, Apache configuration passed, and HTTP smoke test passed.\\n" \
+                >> /repo/output/mod-md-compatibility/report.md
             '
           cat output/mod-md-compatibility/report.md
+      - name: Publish readable mod_md diagnostic summary
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ ! -f output/mod-md-compatibility/report.md ]; then
+            echo "No mod_md report generated" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          cat output/mod-md-compatibility/report.md >> "$GITHUB_STEP_SUMMARY"
+          mkdir -p apache2/focal/analysis
+          cp output/mod-md-compatibility/report.md \
+            apache2/focal/analysis/mod-md-compatibility-latest.md
+          git fetch --no-tags origin refs/heads/backport/focal
+          remote_head=$(git rev-parse FETCH_HEAD)
+          if [ "$remote_head" != "$GITHUB_SHA" ]; then
+            echo "Skipping stale report publication at $remote_head"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add apache2/focal/analysis/mod-md-compatibility-latest.md
+          if ! git diff --cached --quiet; then
+            git commit -m "ci(focal): publish latest mod_md compatibility diagnostics"
+            git push origin HEAD:backport/focal || echo "Newer branch commit won report publication race"
+          fi
       - name: Upload compatibility diagnostics
         if: always()
         uses: actions/upload-artifact@v4

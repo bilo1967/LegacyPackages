@@ -64,4 +64,16 @@ report = [
 ]
 (out / "report.md").write_text("\n".join(report) + "\n")
 print(f"mod_md full-source Focal header probe: {status} ({code}), {len(files)} source files")
-# A compiler failure is diagnostic data. Infrastructure failures above remain fatal.
+if status != "COMPILED":
+    print("Compiler output (first relevant diagnostics):")
+    print("\n".join(issues[:25]) if issues else output[-3000:])
+    sys.exit(1)
+module = md / ".libs" / "mod_md.so"
+if not module.is_file():
+    print("apxs returned success but did not produce .libs/mod_md.so")
+    (out / "report.md").write_text(
+        (out / "report.md").read_text()
+        + "\n**Missing shared object after successful compiler exit.**\n"
+    )
+    sys.exit(1)
+print("Built module:", module)
