@@ -9,6 +9,8 @@ on:
       - 'apache2/focal/tools/prepare-experimental.py'
       - 'apache2/focal/tools/test-http-headers.py'
       - 'apache2/focal/tools/test-mod-php.py'
+      - 'apache2/focal/tools/fetch-legacy-php.py'
+      - 'apache2/focal/tools/test-legacy-php.py'
 
 permissions:
   contents: write
@@ -112,6 +114,40 @@ jobs:
               python3 /tests/test-http-headers.py
               python3 /tests/test-mod-php.py
             '
+      - name: Smoke-test released PHP 8.3 and 8.4 modules with patched Apache
+        shell: bash
+        run: |
+          set -euo pipefail
+          for version in 8.3 8.4; do
+            dest="output/php${version/./}"
+            python3 apache2/focal/tools/fetch-legacy-php.py "$version" "$dest"
+            docker run --rm --cpus=2 --memory=2g \
+              --mount type=bind,source="$PWD/output",target=/build,readonly \
+              --mount type=bind,source="$PWD/apache2/focal/tools",target=/tests,readonly \
+              --env "PHP_VERSION=$version" \
+              --env DEBIAN_FRONTEND=noninteractive \
+              ubuntu:20.04 bash -euc '
+                apt-get update
+                apt-get install -y --no-install-recommends \
+                  /build/apache2-data_*.deb \
+                  /build/apache2-utils_*.deb \
+                  /build/apache2-bin_*.deb \
+                  /build/apache2_*.deb \
+                  /build/php${PHP_VERSION/./}/*.deb \
+                  python3
+                a2dismod mpm_event
+                a2enmod mpm_prefork
+                a2enmod "php${PHP_VERSION}"
+                echo ServerName localhost > /etc/apache2/conf-available/unibo-ci.conf
+                a2enconf unibo-ci
+                printf "<?php header(\"X-Unibo-PHP: php8\"); echo PHP_MAJOR_VERSION, \".\", PHP_MINOR_VERSION, \"\\n\"; ?>" > /var/www/html/unibo-php-test.php
+                apache2ctl -t
+                apache2ctl -M | grep -q mpm_prefork_module
+                apache2ctl -M | grep -Eq "php[0-9]*_module"
+                apache2ctl -k start
+                python3 /tests/test-legacy-php.py "$PHP_VERSION"
+              '
+          done
       - name: Commit exact experimental patch manifest
         shell: bash
         run: |
