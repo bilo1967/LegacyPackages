@@ -9,7 +9,7 @@ on:
       - 'apache2/focal/tools/inspect-md-native.py'
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   review:
@@ -39,6 +39,30 @@ jobs:
                 /repo/output/mod-md-native/report.md
             '
           head -n 70 output/mod-md-native/report.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Publish concise source audit in branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p apache2/focal/analysis
+          python3 - <<'PY'
+          from pathlib import Path
+          source = Path("output/mod-md-native/report.md").read_text()
+          # Keep both the native Focal context and the upstream CVE hunk index.
+          excerpt = source[:58000] + "\n\n--- truncated source audit ---\n\n" + source[-12000:]
+          Path("apache2/focal/analysis/mod-md-native-port-latest.md").write_text(excerpt)
+          PY
+          git fetch --no-tags origin refs/heads/backport/focal
+          if [ "$(git rev-parse FETCH_HEAD)" != "$GITHUB_SHA" ]; then
+            echo "Skipping publication from stale workflow"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add apache2/focal/analysis/mod-md-native-port-latest.md
+          if ! git diff --cached --quiet; then
+            git commit -m "ci(focal): publish native mod_md porting audit"
+            git push origin HEAD:backport/focal || echo "Report publication raced with a newer commit"
+          fi
       - uses: actions/upload-artifact@v4
         if: always()
         with:
