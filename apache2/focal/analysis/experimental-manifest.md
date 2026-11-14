@@ -2,7 +2,7 @@
 
 Not for production use. No security completeness claim. Jammy source patches are not equivalent to verified Focal ESM.
 
-Version: \`2.4.41-4ubuntu3.23+unibo0~experiment1\`. Applied: 50; skipped: 15.
+Version: \`2.4.41-4ubuntu3.23+unibo0~experiment1\`. Applied: 54; skipped: 13.
 
 | Patch | Decision | Reason |
 |---|---|---|
@@ -19,8 +19,8 @@ Version: \`2.4.41-4ubuntu3.23+unibo0~experiment1\`. Applied: 50; skipped: 15.
 | \`CVE-2025-49630.patch\` | applied | zero-fuzz sequential patch |
 | \`CVE-2025-49812.patch\` | applied | zero-fuzz sequential patch |
 | \`CVE-2025-53020.patch\` | applied | zero-fuzz sequential patch |
-| \`CVE-2025-23048-regression.patch\` | skipped | 1 out of 4 hunks FAILED |
-| \`CVE-2025-23048-regression-2.patch\` | skipped | 1 out of 1 hunk FAILED |
+| \`CVE-2025-23048-regression.patch\` | applied | Focal strcasecmp context adapted (no security changes) |
+| \`CVE-2025-23048-regression-2.patch\` | applied | zero-fuzz sequential patch |
 | \`CVE-2025-58098.patch\` | applied | zero-fuzz sequential patch |
 | \`CVE-2025-65082.patch\` | applied | zero-fuzz sequential patch |
 | \`CVE-2025-66200.patch\` | applied | zero-fuzz sequential patch |
@@ -71,5 +71,7 @@ Version: \`2.4.41-4ubuntu3.23+unibo0~experiment1\`. Applied: 50; skipped: 15.
 | \`CVE-2026-109163.patch\` | applied | zero-fuzz sequential patch |
 | \`CVE-2026-119618.patch\` | applied | zero-fuzz sequential patch |
 | \`CVE-2026-42528.patch\` | applied | zero-fuzz sequential patch |
+| \`unibo-focal-sni-policy-hash-member.patch\` | applied | Focal-only SSLSrvConfigRec SNI policy hash member |
+| \`unibo-focal-sni-command-declaration.patch\` | applied | Focal-only prototype for SNI directive; regression-1/2 required |
 
 Next: review each source diff, add prerequisite patches and complete missing CVEs, then run regression and ABI tests.
