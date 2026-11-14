@@ -17,6 +17,7 @@ on:
       - 'apache2/focal/tools/test-apxs-abi.py'
       - 'apache2/focal/tools/test-digest-auth.py'
       - 'apache2/focal/tools/audit-digest-port.py'
+      - 'apache2/focal/tools/test-digest-replay.py'
 
 permissions:
   contents: write
@@ -321,6 +322,7 @@ jobs:
               apache2ctl -M | grep -q auth_digest_module
               apache2ctl -k start
               python3 /tests/test-digest-auth.py verify
+              python3 /tests/test-digest-replay.py
             '
       - name: Commit exact experimental patch manifest
         shell: bash
