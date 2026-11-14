@@ -96,13 +96,20 @@ jobs:
                 python3
               a2dismod mpm_event
               a2enmod mpm_prefork
+              # Focal mod_php 7.4 requires prefork. Check the patched Apache
+              # against the distro binary module in an isolated container.
+              apt-get install -y --no-install-recommends libapache2-mod-php7.4
+              a2enmod php7.4
               echo ServerName localhost > /etc/apache2/conf-available/unibo-ci.conf
               a2enconf unibo-ci
               printf "unibo-focal-http-headers\\n" > /var/www/html/unibo-ci-test.txt
               apache2ctl -t
               apache2ctl -M | grep -q mpm_prefork_module
+              apache2ctl -M | grep -q php7_module
+              printf "<?php header(\"X-Unibo-PHP: php74\"); echo PHP_MAJOR_VERSION, \".\", PHP_MINOR_VERSION, \"\\n\"; ?>" > /var/www/html/unibo-php-test.php
               apache2ctl -k start
               python3 /tests/test-http-headers.py
+              python3 /tests/test-mod-php.py
             '
       - name: Commit exact experimental patch manifest
         shell: bash
