@@ -151,6 +151,29 @@ for name in jammy_series:
                       else "zero-fuzz sequential patch"))
     current.add(name)
 
+# Verify the policy-hash field in the actual patched Focal SSL struct.
+# The compiler needs this field even when HAVE_TLSEXT is not defined.
+if "CVE-2025-23048-regression.patch" in current:
+    ssl_header = (focal / "modules/ssl/ssl_private.h").read_text()
+    start = ssl_header.find("struct SSLSrvConfigRec {")
+    if start < 0:
+        sys.exit("Missing SSLSrvConfigRec in patched Focal SSL header")
+    end = ssl_header.find("};", start)
+    if end < 0:
+        sys.exit("Unterminated SSLSrvConfigRec")
+    definition = ssl_header[start:end]
+    member = "const char      *sni_policy_hash;"
+    if definition.count(member) != 1:
+        sys.exit("SNI patch incomplete: expected sni_policy_hash in SSLSrvConfigRec, got "
+                 + str(definition.count(member)) + ":\n" + definition)
+    context = definition.index(member)
+    strict = definition.index("strict_sni_vhost_check")
+    if not (strict < definition.index("#endif", strict) < context):
+        sys.exit("SNI policy hash must be unconditional in Focal SSLSrvConfigRec")
+    (out / "sni-struct-check.txt").write_text(
+        "Verified policy hash in SSLSrvConfigRec:\n" + definition + "\n"
+    )
+
 # Focal needs an explicit declaration visible at the point where mod_ssl.c
 # registers SSLVHostSNIPolicy. Carry the compatibility-only change as its own
 # auditable quilt patch rather than silently modifying an unpacked source.
