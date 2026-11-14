@@ -252,7 +252,7 @@ jobs:
                 /build/apache2-utils_*.deb \
                 /build/apache2-bin_*.deb \
                 /build/apache2_*.deb \
-                libapache2-mod-fcgid libfcgi-dev gcc python3
+                libapache2-mod-fcgid libfcgi-dev libc6-dev gcc python3
               a2enmod fcgid proxy proxy_wstunnel
               echo ServerName localhost > /etc/apache2/conf-available/unibo-ci.conf
               a2enconf unibo-ci
