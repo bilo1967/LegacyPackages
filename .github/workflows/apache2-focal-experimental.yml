@@ -9,7 +9,7 @@ on:
       - 'apache2/focal/tools/prepare-experimental.py'
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   experimental:
@@ -45,6 +45,19 @@ jobs:
               cp /tmp/report/experimental-manifest.md /repo/output/
               sha256sum /repo/output/*.deb > /repo/output/SHA256SUMS
             '
+      - name: Commit exact experimental patch manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p apache2/focal/analysis
+          cp output/experimental-manifest.md apache2/focal/analysis/experimental-manifest.md
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add apache2/focal/analysis/experimental-manifest.md
+          if ! git diff --cached --quiet; then
+            git commit -m "ci(focal): publish experimental applied/skipped patch manifest"
+            git push origin HEAD:backport/focal
+          fi
       - name: Upload experimental build outputs (not for production)
         uses: actions/upload-artifact@v4
         with:
