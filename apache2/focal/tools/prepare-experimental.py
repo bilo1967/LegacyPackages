@@ -77,7 +77,7 @@ for name in jammy_series:
         if http_src.count(old_calls) != 1:
             sys.exit("Cannot safely adapt CVE-2024-42516: keepalive block not unique")
         hunk_headers = list(re.finditer(
-            r"(?m)^@@ -[0-9]+(?:,[0-9]+)? \\+[0-9]+(?:,[0-9]+)? @@[^\\n]*\\n",
+            r"(?m)^@@ -[0-9]+(?:,[0-9]+)? \+[0-9]+(?:,[0-9]+)? @@[^\n]*\n",
             original,
         ))
         if len(hunk_headers) != 4:
