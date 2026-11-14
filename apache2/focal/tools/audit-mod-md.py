@@ -62,6 +62,25 @@ common_paths = sorted(
 if not missing_paths:
     sys.exit("No newer source paths missing: re-check mod_md baseline")
 
+# Independently check the module's build-object dependency graph. A source
+# file absent from the CVE diff may still be required to compile the newer
+# implementation; the config2.m4 object list is authoritative here.
+build_config = (jammy_md / "config2.m4").read_text()
+object_match = re.search(r'(?s)\bmd_objs="dnl\s*(.*?)\n"', build_config)
+if not object_match:
+    sys.exit("Cannot parse Jammy mod_md build object list")
+module_objects = sorted(set(re.findall(
+    r"\b([A-Za-z_][A-Za-z_0-9]*)\.lo\b", object_match.group(1)
+)))
+if len(module_objects) < 20 or "mod_md" not in module_objects:
+    sys.exit("Unexpected Jammy mod_md build object inventory")
+missing_build_units = sorted(
+    name + ".c" for name in module_objects
+    if not (focal_md / (name + ".c")).is_file()
+)
+if not missing_build_units:
+    sys.exit("No missing Focal build units; review mod_md dependency baseline")
+
 text = [
     "# Apache Focal experimental mod_md architecture audit",
     "",
@@ -91,6 +110,20 @@ text += [
 ]
 text.extend(f"- \`{name}\`" for name in common_paths)
 text += [
+    "",
+    "## Jammy module build dependencies",
+    "",
+    f"- C compilation units in Jammy md_objs: {len(module_objects)}.",
+    f"- Build units absent from Focal: {len(missing_build_units)}.",
+    "",
+    "### Missing C compilation units",
+    "",
+]
+text.extend(f"- \`modules/md/{name}\`" for name in missing_build_units)
+text += [
+    "",
+    "An updated mod_md candidate must supply the entire compatible build "
+    "dependency set; copying just the security patch is insufficient.",
     "",
     "## CVE disposition",
     "",
