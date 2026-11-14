@@ -289,6 +289,55 @@ for name in jammy_series:
         original = original.replace(old_hash_hunk, new_hash_hunk, 1)
         patch_for_apply = out / "adapted-CVE-2025-23048-regression.patch"
         patch_for_apply.write_text(original.replace(old_hunk, new_hunk, 1))
+    if name == "CVE-2026-43951.patch":
+        # Both HTTP/1.x and HTTP/2 need this same OOB-read fix. The
+        # content_languages array can grow inside the while loop, so its
+        # element pointer must be reloaded after each potential reallocation.
+        # Rebuild only the two tiny upstream hunks using exact Focal context.
+        original = upstream.read_text()
+        removed = "-        char **languages = (char **)(r->content_languages->elts);"
+        added = "+            char **languages = (char **)(r->content_languages->elts);"
+        expected_files = (
+            "modules/http/http_filters.c",
+            "modules/http2/h2_c2_filter.c",
+        )
+        if (original.count(removed) != 2
+                or original.count(added) != 2
+                or original.count("--- a/") != 2
+                or original.count("+++ b/") != 2
+                or any(original.count("--- a/" + item + "\n") != 1
+                       for item in expected_files)
+                or any(original.count("+++ b/" + item + "\n") != 1
+                       for item in expected_files)):
+            sys.exit("Unexpected upstream CVE-2026-43951 patch content")
+        generated = []
+        declaration = "        char **languages = (char **)(r->content_languages->elts);\n"
+        loop = ("        while (field && (token = "
+                "ap_get_list_item(r->pool, &field)) != NULL) {\n")
+        field = ('        const char *field = '
+                 'apr_table_get(r->headers_out, "Content-Language");\n')
+        for rel_path in expected_files:
+            rel = pathlib.Path(rel_path)
+            before = (focal / rel).read_text()
+            # Validate the entire declaration-to-loop sequence, not an
+            # arbitrary nearby occurrence or approximate patch context.
+            old = declaration + field + "\n" + loop
+            new = field + "\n" + loop + "    " + declaration
+            if before.count(old) != 1:
+                sys.exit("Cannot uniquely rebase CVE-2026-43951 in " + rel_path)
+            after = before.replace(old, new, 1)
+            candidate = "".join(difflib.unified_diff(
+                before.splitlines(keepends=True),
+                after.splitlines(keepends=True),
+                fromfile="a/" + rel_path, tofile="b/" + rel_path,
+                n=3,
+            ))
+            if (candidate.count("-" + declaration) != 1
+                    or candidate.count("+" + "    " + declaration) != 1):
+                sys.exit("Unexpected CVE-2026-43951 rebase in " + rel_path)
+            generated.append(candidate)
+        patch_for_apply = out / "adapted-CVE-2026-43951.patch"
+        patch_for_apply.write_text("".join(generated))
     if name == "CVE-2026-7363X.patch":
         # Port the entire patched Jammy Digest implementation at once. Nine
         # conflicting hunks in Focal cannot be applied in isolation: nonce,
@@ -407,7 +456,8 @@ for name in jammy_series:
                                   "CVE-2025-23048-regression.patch",
                                   "CVE-2026-44631.patch",
                                   "CVE-2026-106023.patch",
-                                  "CVE-2026-7363X.patch")
+                                  "CVE-2026-7363X.patch",
+                                  "CVE-2026-43951.patch")
                       else "zero-fuzz sequential patch"))
     current.add(name)
 
