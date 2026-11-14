@@ -32,16 +32,31 @@ for name in jammy_series:
     if not upstream.is_file():
         decisions.append((name, "missing", "Missing upstream file"))
         continue
+    # Focal uses strcasecmp() where Jammy uses ap_cstr_casecmp() in the
+    # core expression lookup. Adapt only this unchanged CONTEXT line; retain
+    # every security-sensitive added/removed line from Ubuntu's patch.
+    patch_for_apply = upstream
+    if name == "CVE-2026-44119.patch":
+        original = upstream.read_text()
+        old_context = "                     match = !ap_cstr_casecmp(prov->name, parms->name);"
+        new_context = "                     match = !strcasecmp(prov->name, parms->name);"
+        if original.count(old_context) != 1:
+            sys.exit("Cannot safely adapt CVE-2026-44119: expected one context line")
+        adapted = original.replace(old_context, new_context, 1)
+        patch_for_apply = out / "adapted-CVE-2026-44119.patch"
+        patch_for_apply.write_text(adapted)
     # This Jammy security feature needs a coordinated parser/headers backport.
     # A patch can apply cleanly but use the new flag without importing its
     # definition and enforcement. Do not produce an incomplete security fix.
     added_lines = "\n".join(
-        line[1:] for line in upstream.read_text(errors="replace").splitlines()
+        line[1:] for line in patch_for_apply.read_text(errors="replace").splitlines()
         if line.startswith("+") and not line.startswith("+++")
     )
     flag = "AP_EXPR_FLAG_RESTRICTED_FILE_FUNC"
     header = focal / "include/ap_expr.h"
-    if flag in added_lines and flag not in header.read_text(errors="replace"):
+    if (flag in added_lines and flag not in header.read_text(errors="replace")
+            and not (name == "CVE-2026-44119.patch"
+                     and "#define AP_EXPR_FLAG_RESTRICTED_FILE_FUNC" in added_lines)):
         decisions.append((
             name, "blocked-dependency",
             "Needs complete CVE-2026-44119 expression parser backport; "
@@ -53,7 +68,7 @@ for name in jammy_series:
     def execute(extra):
         return subprocess.run(
             ["patch", "--batch", "--forward", "--fuzz=0", "-p1", *extra,
-             "-i", str(upstream)], cwd=focal, text=True,
+             "-i", str(patch_for_apply)], cwd=focal, text=True,
             stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=60)
     check = execute(["--dry-run"])
     if check.returncode != 0:
@@ -65,11 +80,26 @@ for name in jammy_series:
     dest_name = "unibo-jammy-" + name
     dest = focal / "debian/patches" / dest_name
     dest.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(upstream, dest)
+    shutil.copy2(patch_for_apply, dest)
     with series_path.open("a") as f:
         f.write(f"{dest_name}\n")
-    decisions.append((name, "applied", "zero-fuzz sequential patch"))
+    decisions.append((name, "applied",
+                      "Focal strcasecmp context adapted (no security changes)"
+                      if name == "CVE-2026-44119.patch"
+                      else "zero-fuzz sequential patch"))
     current.add(name)
+
+# Verify the entire expression parser protection is present if imported.
+if "CVE-2026-44119.patch" in current:
+    expr_header = (focal / "include/ap_expr.h").read_text()
+    expr_core = (focal / "server/util_expr_eval.c").read_text()
+    assert "#define AP_EXPR_FLAG_RESTRICTED_FILE_FUNC" in expr_header
+    assert "info->flags |= AP_EXPR_FLAG_RESTRICTED_FILE_FUNC;" in expr_core
+    assert "(prov->restricted & RESTRICTED_FILE_FUNC)" in expr_core
+if "CVE-2026-59797.patch" in current:
+    assert "CVE-2026-44119.patch" in current, "SSLRequire requires parser fix"
+    ssl_conf = (focal / "modules/ssl/ssl_engine_config.c").read_text()
+    assert "info->flags |= AP_EXPR_FLAG_RESTRICTED_FILE_FUNC;" in ssl_conf
 
 accepted = [n for n, state, _ in decisions if state == "applied"]
 skipped = [n for n, state, _ in decisions if state != "applied"]
