@@ -355,6 +355,105 @@ for name in jammy_series:
             sys.exit("Incomplete hcheck relocation diff")
         patch_for_apply = out / "adapted-mod_proxy_hcheck_jammy_fix_to_detect_support.patch"
         patch_for_apply.write_text(rebased)
+    if name == "fix-a-possible-listener-deadlock.patch":
+        # Import all six upstream changes atomically against Focal's event MPM.
+        # Unlike Jammy, Focal connections_above_limit() takes no arguments.
+        # Rebase the complete functional changes, not individual successful
+        # hunks; the helper/wakeup/worker-shutdown edits depend on each other.
+        upstream_diff = upstream.read_text()
+        expected_upstream = (
+            "+static APR_INLINE int should_enable_listensocks(void)",
+            "+    return !dying && listeners_disabled() && !connections_above_limit(NULL);",
+            "+                || should_enable_listensocks())) {",
+            "+        if (!workers_were_busy && should_enable_listensocks()) {",
+            "+    for (;;) {",
+            "+            if (listener_is_wakeable && should_enable_listensocks()) {",
+            "+                if (ps->quiescing != 2)",
+        )
+        if (upstream_diff.count("--- a/server/mpm/event/event.c\n") != 1
+                or upstream_diff.count("+++ b/server/mpm/event/event.c\n") != 1
+                or len(re.findall(r"(?m)^@@ -", upstream_diff)) != 6
+                or any(upstream_diff.count(line) != 1 for line in expected_upstream)):
+            sys.exit("Unexpected upstream listener deadlock patch structure")
+        rel_path = "server/mpm/event/event.c"
+        before = (focal / rel_path).read_text()
+        after = before
+
+        def replace_event(old, new, label):
+            global after
+            if after.count(old) != 1:
+                sys.exit("Listener deadlock adaptation anchor mismatch for "
+                         + label + ": " + str(after.count(old)))
+            after = after.replace(old, new, 1)
+
+        # Source order matters: all substitutions use exact existing Focal
+        # context and are checked before any quilt patch is applied.
+        helper_anchor = "static void abort_socket_nonblocking("
+        helper = (
+            "static APR_INLINE int should_enable_listensocks(void)\n"
+            "{\n"
+            "    return !dying && listeners_disabled() && !connections_above_limit();\n"
+            "}\n\n"
+        )
+        if "static APR_INLINE int should_enable_listensocks(void)" in after:
+            sys.exit("Focal already contains listener wakeup helper")
+        replace_event(helper_anchor, helper + helper_anchor, "helper")
+        replace_event(
+            "                || (listeners_disabled() && !connections_above_limit()))) {",
+            "                || should_enable_listensocks())) {",
+            "close-connection wakeup")
+        replace_event(
+            "        if (listeners_disabled()\n"
+            "                && !workers_were_busy\n"
+            "                && !connections_above_limit()) {\n",
+            "        if (!workers_were_busy && should_enable_listensocks()) {\n",
+            "listener reenable")
+        worker_start = "static void *APR_THREAD_FUNC worker_thread("
+        if after.count(worker_start) != 1:
+            sys.exit("Event worker thread not unique")
+        worker_index = after.index(worker_start)
+        loop_old = "    while (!workers_may_exit) {\n"
+        loop_pos = after.find(loop_old, worker_index)
+        if loop_pos < 0:
+            sys.exit("Missing event worker shutdown loop")
+        after = after[:loop_pos] + "    for (;;) {\n" + after[loop_pos+len(loop_old):]
+        replace_event(
+            "                signal_threads(ST_GRACEFUL);\n"
+            "                break;\n"
+            "            }\n"
+            "            is_idle = 1;\n",
+            "                signal_threads(ST_GRACEFUL);\n"
+            "                break;\n"
+            "            }\n"
+            "            /* A new idler may have changed connections_above_limit(),\n"
+            "             * let the listener know and decide.\n"
+            "             */\n"
+            "            if (listener_is_wakeable && should_enable_listensocks()) {\n"
+            "                apr_pollset_wakeup(event_pollset);\n"
+            "            }\n"
+            "            is_idle = 1;\n",
+            "worker-idle wakeup")
+        replace_event(
+            "                if (!ps->quiescing)\n"
+            "                    retained->active_daemons--;\n",
+            "                if (ps->quiescing != 2)\n"
+            "                    retained->active_daemons--;\n",
+            "child exit accounting")
+        # Verify full upstream intent, not only individual line matches.
+        if (after.count("static APR_INLINE int should_enable_listensocks(void)") != 1
+                or after.count("should_enable_listensocks()") != 4
+                or "                if (ps->quiescing != 2)" not in after
+                or after.count("    for (;;) {\n") < before.count("    for (;;) {\n") + 1):
+            sys.exit("Incomplete event listener deadlock adaptation")
+        rebased = "".join(difflib.unified_diff(
+            before.splitlines(keepends=True),
+            after.splitlines(keepends=True),
+            fromfile="a/" + rel_path, tofile="b/" + rel_path, n=3
+        ))
+        if not rebased.startswith("--- a/" + rel_path + "\n"):
+            sys.exit("Cannot produce full event listener deadlock diff")
+        patch_for_apply = out / "adapted-fix-a-possible-listener-deadlock.patch"
+        patch_for_apply.write_text(rebased)
     if name == "handle-children-killed-pathologically.patch":
         # The two upstream first hunks add a single function-local counter,
         # but Focal server_main_loop() has a different signature. Rebase that
@@ -631,7 +730,8 @@ for name in jammy_series:
                                   "CVE-2026-7363X.patch",
                                   "CVE-2026-43951.patch",
                                   "handle-children-killed-pathologically.patch",
-                                  "mod_proxy_hcheck_jammy_fix_to_detect_support.patch")
+                                  "mod_proxy_hcheck_jammy_fix_to_detect_support.patch",
+                                  "fix-a-possible-listener-deadlock.patch")
                       else "zero-fuzz sequential patch"))
     current.add(name)
 
