@@ -76,25 +76,28 @@ for name in jammy_series:
         http_src = (focal / "modules/http/http_filters.c").read_text()
         if http_src.count(old_calls) != 1:
             sys.exit("Cannot safely adapt CVE-2024-42516: keepalive block not unique")
-        hunk_match = re.search(
-            r"(?m)^@@ -1449,10 \+1355,6 @@[^\n]*\n",
+        hunk_headers = list(re.finditer(
+            r"(?m)^@@ -[0-9]+(?:,[0-9]+)? \\+[0-9]+(?:,[0-9]+)? @@[^\\n]*\\n",
             original,
-        )
-        if not hunk_match:
-            sys.exit("Unexpected CVE-2024-42516 final hunk header")
-        tail = original[hunk_match.end():]
-        next_header = re.search(r"(?m)^@@ |^--- a/", tail)
-        old_body = tail[:next_header.start()] if next_header else tail
+        ))
+        if len(hunk_headers) != 4:
+            sys.exit("Unexpected CVE-2024-42516 hunk count: "
+                     + str(len(hunk_headers)))
         removed = "".join("-" + line for line in old_calls.splitlines(keepends=True))
+        last = hunk_headers[-1]
+        old_body = original[last.end():]
         if old_body.count(removed) != 1:
-            sys.exit("Unexpected CVE-2024-42516 keepalive deletion hunk")
+            sys.exit("Unexpected CVE-2024-42516 keepalive deletion hunk; "
+                     "expected a unique original removal")
         if any(line.startswith("+") for line in old_body.splitlines()):
             sys.exit("CVE-2024-42516 final hunk has unexpected additions")
-        # This zero-context hunk matches a unique four-line original block.
-        # All other hunks, including the security refactor, stay untouched.
+        # Require precisely the original deletion (plus unchanged context).
+        if any(line.startswith("-") for line in old_body.splitlines()
+               if line not in removed.splitlines()):
+            sys.exit("Unexpected additional deletions in CVE-2024-42516 final hunk")
+        # Rebase the last hunk only; preserve the preceding three intact.
         replacement = "@@ -1454,4 +1357,0 @@\n" + removed
-        patched = (original[:hunk_match.start()] + replacement
-                   + (tail[next_header.start():] if next_header else ""))
+        patched = original[:last.start()] + replacement
         patch_for_apply = out / "adapted-CVE-2024-42516.patch"
         patch_for_apply.write_text(patched)
     if name == "CVE-2026-106023.patch":
@@ -247,6 +250,9 @@ for name in jammy_series:
              "-i", str(patch_for_apply)], cwd=focal, text=True,
             stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=60)
     check = execute(["--dry-run"])
+    if name == "CVE-2024-42516.patch" and check.returncode:
+        sys.exit("Required CVE-2024-42516 patch not applied: "
+                 + check.stdout.strip()[-1200:])
     if check.returncode != 0:
         decisions.append((name, "skipped", check.stdout.strip().splitlines()[-1][:180] if check.stdout.strip() else "Dry run rejected"))
         continue
