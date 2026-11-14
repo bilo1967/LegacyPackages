@@ -78,6 +78,32 @@ jobs:
               dpkg-query -W apache2 apache2-bin apache2-data apache2-utils
               cat /tmp/version.txt | head -n 16
             '
+      - name: Smoke-test MPM prefork HTTP headers in disposable Focal container
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm --cpus=2 --memory=2g \
+            --mount type=bind,source="$PWD/output",target=/build,readonly \
+            --mount type=bind,source="$PWD/apache2/focal/tools",target=/tests,readonly \
+            --env DEBIAN_FRONTEND=noninteractive \
+            ubuntu:20.04 bash -euc '
+              apt-get update
+              apt-get install -y --no-install-recommends \
+                /build/apache2-data_*.deb \
+                /build/apache2-utils_*.deb \
+                /build/apache2-bin_*.deb \
+                /build/apache2_*.deb \
+                python3
+              a2dismod mpm_event
+              a2enmod mpm_prefork
+              echo ServerName localhost > /etc/apache2/conf-available/unibo-ci.conf
+              a2enconf unibo-ci
+              printf "unibo-focal-http-headers\\n" > /var/www/html/unibo-ci-test.txt
+              apache2ctl -t
+              apache2ctl -M | grep -q mpm_prefork_module
+              apache2ctl -k start
+              python3 /tests/test-http-headers.py
+            '
       - name: Commit exact experimental patch manifest
         shell: bash
         run: |
