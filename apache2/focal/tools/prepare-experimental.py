@@ -45,6 +45,22 @@ for name in jammy_series:
         adapted = original.replace(old_context, new_context, 1)
         patch_for_apply = out / "adapted-CVE-2026-44119.patch"
         patch_for_apply.write_text(adapted)
+    if name in ("CVE-2024-43204-pre1.patch", "CVE-2024-43204.patch"):
+        # Focal's equivalent case-insensitive comparison uses strcasecmp.
+        # Rebase the whole Jammy patch consistently: both old context and
+        # added secure branches retain their original semantics.
+        original = upstream.read_text()
+        jammy_cmp = 'ap_cstr_casecmp(hdr->header, "Content-Type")'
+        focal_cmp = 'strcasecmp(hdr->header, "Content-Type")'
+        count = original.count(jammy_cmp)
+        expected = {"CVE-2024-43204-pre1.patch": 4,
+                    "CVE-2024-43204.patch": 2}[name]
+        if count != expected:
+            sys.exit(f"Unexpected mod_headers patch layout for {name}: "
+                     f"expected {expected} comparator calls, found {count}")
+        patched = original.replace(jammy_cmp, focal_cmp)
+        patch_for_apply = out / ("adapted-" + name)
+        patch_for_apply.write_text(patched)
     # This Jammy security feature needs a coordinated parser/headers backport.
     # A patch can apply cleanly but use the new flag without importing its
     # definition and enforcement. Do not produce an incomplete security fix.
@@ -85,7 +101,9 @@ for name in jammy_series:
         f.write(f"{dest_name}\n")
     decisions.append((name, "applied",
                       "Focal strcasecmp context adapted (no security changes)"
-                      if name == "CVE-2026-44119.patch"
+                      if name in ("CVE-2026-44119.patch",
+                                  "CVE-2024-43204-pre1.patch",
+                                  "CVE-2024-43204.patch")
                       else "zero-fuzz sequential patch"))
     current.add(name)
 
