@@ -14,7 +14,7 @@ skipped = []
 for line in manifest.splitlines():
     parts = [p.strip() for p in line.split("|")]
     if len(parts) >= 4 and parts[2] in ("skipped", "blocked-dependency", "missing"):
-        skipped.append((parts[1].strip().strip(chr(96)).strip(chr(92)), parts[2]))
+        skipped.append((re.sub(r"[^A-Za-z0-9_.-]", "", parts[1]), parts[2]))
 if not skipped:
     sys.exit("No skipped candidates found in manifest")
 
