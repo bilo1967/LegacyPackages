@@ -435,9 +435,9 @@ for name in jammy_series:
             "worker-idle wakeup")
         replace_event(
             "                if (!ps->quiescing)\n"
-            "                    retained->active_daemons--;\n",
+            "                    active_daemons--;\n",
             "                if (ps->quiescing != 2)\n"
-            "                    retained->active_daemons--;\n",
+            "                    active_daemons--;\n",
             "child exit accounting")
         # Verify full upstream intent, not only individual line matches.
         if (after.count("static APR_INLINE int should_enable_listensocks(void)") != 1
