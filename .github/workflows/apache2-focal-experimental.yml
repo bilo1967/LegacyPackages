@@ -116,6 +116,8 @@ jobs:
             '
       - name: Smoke-test released PHP 8.3 and 8.4 modules with patched Apache
         shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           for version in 8.3 8.4; do

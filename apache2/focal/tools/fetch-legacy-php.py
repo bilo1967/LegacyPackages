@@ -2,6 +2,7 @@
 """Fetch public PHP Focal release .deb assets and verify GitHub SHA256 digests."""
 import hashlib
 import json
+import os
 import pathlib
 import re
 import sys
@@ -15,9 +16,15 @@ REPO_API = "https://api.github.com/repos/bilo1967/php83-legacy/releases/tags/"
 
 
 def get(url):
-    req = urllib.request.Request(
-        url, headers={"User-Agent": "apache-focal-compat-ci",
-                      "Accept": "application/vnd.github+json"})
+    headers = {"User-Agent": "apache-focal-compat-ci"}
+    if url.startswith("https://api.github.com/"):
+        headers["Accept"] = "application/vnd.github+json"
+        token = os.environ.get("GH_TOKEN")
+        if token:
+            headers["Authorization"] = "Bearer " + token
+        else:
+            raise RuntimeError("GH_TOKEN required for GitHub API release metadata")
+    req = urllib.request.Request(url, headers=headers)
     return urllib.request.urlopen(req, timeout=90)
 
 
