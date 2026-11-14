@@ -19,20 +19,20 @@ BASE = "http://127.0.0.1"
 
 
 def configure():
-    Path("/var/www/html/unibo-digest").write_text("unibo-digest-ok\\n")
+    Path("/var/www/html/unibo-digest").write_text("unibo-digest-ok\n")
     ha1 = hashlib.md5(
         ("%s:%s:%s" % (USERNAME, REALM, PASSWORD)).encode("utf-8")
     ).hexdigest()
     Path("/etc/apache2/unibo-digest.passwd").write_text(
-        "%s:%s:%s\\n" % (USERNAME, REALM, ha1)
+        "%s:%s:%s\n" % (USERNAME, REALM, ha1)
     )
     Path("/etc/apache2/conf-available/unibo-digest.conf").write_text(
-        "<Location /unibo-digest>\\n"
-        "    AuthType Digest\\n"
-        "    AuthName %s\\n" % REALM +
-        "    AuthUserFile /etc/apache2/unibo-digest.passwd\\n"
-        "    Require valid-user\\n"
-        "</Location>\\n"
+        "<Location /unibo-digest>\n"
+        "    AuthType Digest\n"
+        "    AuthName %s\n" % REALM +
+        "    AuthUserFile /etc/apache2/unibo-digest.passwd\n"
+        "    Require valid-user\n"
+        "</Location>\n"
     )
     Path("/etc/apache2/conf-enabled/unibo-digest.conf").symlink_to(
         "/etc/apache2/conf-available/unibo-digest.conf"
@@ -70,7 +70,7 @@ def verify():
     assert ('realm="' + REALM + '"') in challenge, challenge
     with get_with_credentials(PASSWORD) as response:
         assert response.status == 200, ("valid credentials rejected", response.status)
-        assert response.read() == b"unibo-digest-ok\\n", "wrong authenticated content"
+        assert response.read() == b"unibo-digest-ok\n", "wrong authenticated content"
     try:
         with get_with_credentials("not-the-password") as response:
             raise AssertionError("invalid credentials accepted: %s" % response.status)
