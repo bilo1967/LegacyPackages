@@ -1,0 +1,60 @@
+name: Apache Focal package build
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - backport/focal
+    paths:
+      - '.github/workflows/apache2-focal.yml'
+      - 'apache2/focal/**'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: apache2-focal-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build untouched Ubuntu Focal source in Docker
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          docker run --rm --cpus=2 --memory=4g --pids-limit=256 \
+            --mount type=bind,source="$PWD",target=/repo \
+            --workdir /repo \
+            --env DEBIAN_FRONTEND=noninteractive \
+            ubuntu:20.04 bash -euc '
+              sed -n "s/^deb /deb-src /p" /etc/apt/sources.list >> /etc/apt/sources.list
+              apt-get update
+              apt-get install -y --no-install-recommends build-essential fakeroot dpkg-dev ca-certificates
+              apt-get build-dep -y apache2
+              mkdir -p /tmp/build
+              cd /tmp/build
+              apt-get source apache2=2.4.41-4ubuntu3.23
+              cd apache2-2.4.41
+              dpkg-buildpackage -b -us -uc -j2
+              cp -v /tmp/build/*.deb /repo/artifacts/
+            '
+
+      - name: List built packages
+        run: |
+          ls -lh artifacts/*.deb
+          sha256sum artifacts/*.deb > artifacts/SHA256SUMS
+
+      - name: Upload build artifacts (not for production use)
+        uses: actions/upload-artifact@v4
+        with:
+          name: apache2-focal-baseline-${{ github.run_number }}
+          path: artifacts/
+          retention-days: 14
+          if-no-files-found: error
