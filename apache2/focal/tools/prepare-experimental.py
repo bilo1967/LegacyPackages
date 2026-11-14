@@ -87,6 +87,21 @@ for name in jammy_series:
                 or focal_ssl_header.count("} SSLModConfigRec;") != 1
                 or "modssl_snivhpolicy_t snivh_policy;" in focal_ssl_header):
             sys.exit("Unexpected SSLModConfigRec structure in CVE-2025-23048 regression")
+        # ssl_init_Module references sni_policy_hash outside HAVE_TLSEXT.
+        # Focal must retain this struct member in both preprocessor modes.
+        old_hash_hunk = (
+            "     ssl_enabled_t    strict_sni_vhost_check;\n"
+            "+    const char      *sni_policy_hash;\n"
+            " #endif\n"
+        )
+        new_hash_hunk = (
+            "     ssl_enabled_t    strict_sni_vhost_check;\n"
+            " #endif\n"
+            "+    const char      *sni_policy_hash;\n"
+        )
+        if original.count(old_hash_hunk) != 1:
+            sys.exit("Unexpected sni_policy_hash placement in SNI regression patch")
+        original = original.replace(old_hash_hunk, new_hash_hunk, 1)
         patch_for_apply = out / "adapted-CVE-2025-23048-regression.patch"
         patch_for_apply.write_text(original.replace(old_hunk, new_hunk, 1))
     # This Jammy security feature needs a coordinated parser/headers backport.
