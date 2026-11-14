@@ -8,6 +8,7 @@ on:
       - '.github/workflows/apache2-focal-experimental.yml'
       - 'apache2/focal/tools/prepare-experimental.py'
       - 'apache2/focal/tools/test-http-headers.py'
+      - 'apache2/focal/tools/test-mod-php.py'
 
 permissions:
   contents: write
