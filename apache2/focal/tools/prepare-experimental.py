@@ -120,6 +120,11 @@ for name in jammy_series:
                 or body_304.count("form_header_field") != 1
                 or not body_304.endswith("    }\n\n")):
             sys.exit("Unexpected Focal 304 response header allowlist")
+        # The upstream hunk already carries the blank context line after
+        # the serializer. Copying the trailing blank from Focal as a deleted
+        # line would duplicate it, preventing exact (fuzz=0) application.
+        body_304 = body_304[:-1]
+        assert body_304.endswith("    }\n")
         # The fourth hunk must retain the 304-specific header allowlist
         # in both removed and added sections, with only indentation changed.
         headers = list(re.finditer(
