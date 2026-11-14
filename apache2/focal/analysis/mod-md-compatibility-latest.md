@@ -132,5 +132,18 @@ Unresolved Apache symbols require separate Focal API review.
 ## Static ABI symbol audit
 
 - Present only in other installed Apache modules: 0
-- No provider found in inspected binaries: 130
+- No provider found in inspected binaries: 103
 - Details: symbol-audit.md
+
+## Disposable-container load test
+
+Exit code: 1
+
+~~~text
+apache2: Syntax error on line 146 of /etc/apache2/apache2.conf: Syntax error on line 1 of /etc/apache2/mods-enabled/md_candidate.load: Cannot load /repo/output/mod-md-compatibility/mod-md-source-diagnostic/.libs/mod_md.so into server: /repo/output/mod-md-compatibility/mod-md-source-diagnostic/.libs/mod_md.so: undefined symbol: ap_ssl_conn_is_ssl
+Action '-t' failed.
+The Apache error log may have more information.
+
+~~~
+
+This does not establish ABI or ACME/OCSP security compatibility.
