@@ -289,6 +289,61 @@ for name in jammy_series:
         original = original.replace(old_hash_hunk, new_hash_hunk, 1)
         patch_for_apply = out / "adapted-CVE-2025-23048-regression.patch"
         patch_for_apply.write_text(original.replace(old_hunk, new_hunk, 1))
+    if name == "mod_proxy_hcheck_jammy_fix_to_detect_support.patch":
+        # Upstream moves AJP optional-hook discovery from post_config
+        # into child_init, where dependent modules have registered hooks.
+        # Rebase the complete move, not the empty extraneous file hunk.
+        upstream_patch = upstream.read_text()
+        rel_path = "modules/proxy/mod_proxy_hcheck.c"
+        if (upstream_patch.count("--- a/" + rel_path + "\n") != 1
+                or upstream_patch.count("+++ b/" + rel_path + "\n") != 1
+                or upstream_patch.count(
+                    "+    ajp_handle_cping_cpong = "
+                    "APR_RETRIEVE_OPTIONAL_FN(ajp_handle_cping_cpong);\n") != 1
+                or upstream_patch.count(
+                    "-    ajp_handle_cping_cpong = "
+                    "APR_RETRIEVE_OPTIONAL_FN(ajp_handle_cping_cpong);\n") != 1):
+            sys.exit("Unexpected upstream hcheck optional AJP hook move")
+        path = focal / rel_path
+        before = path.read_text()
+        hook = (
+            "    ajp_handle_cping_cpong = APR_RETRIEVE_OPTIONAL_FN(ajp_handle_cping_cpong);\n"
+            "    if (ajp_handle_cping_cpong) {\n"
+            "       proxy_hcmethods_t *method = proxy_hcmethods;\n"
+            "       for (; method->name; method++) {\n"
+            "           if (method->method == CPING) {\n"
+            "               method->implemented = 1;\n"
+            "               break;\n"
+            "           }\n"
+            "       }\n"
+            "    }\n"
+        )
+        # Move only if the exact old code is present once. Never copy
+        # the extra file named *.patch accidentally included upstream.
+        if before.count(hook) != 1:
+            sys.exit("Focal hcheck old AJP detection block not unique")
+        target = ("    hctp = NULL;\n"
+                  "    tpsize = HC_THREADPOOL_SIZE;\n"
+                  "#endif\n")
+        if before.count(target) != 1:
+            sys.exit("Focal hcheck child-init insertion anchor not unique")
+        without = before.replace(hook + "\n", "", 1)
+        if without == before:
+            sys.exit("Focal hcheck old hook block has unexpected whitespace")
+        after = without.replace(target, target + "\n" + hook + "\n", 1)
+        if after.count(hook) != 1:
+            sys.exit("AJP detection relocation did not preserve unique hook")
+        rebased = "".join(difflib.unified_diff(
+            before.splitlines(keepends=True),
+            after.splitlines(keepends=True),
+            fromfile="a/" + rel_path, tofile="b/" + rel_path, n=3
+        ))
+        if (not rebased.startswith("--- a/" + rel_path + "\n")
+                or rebased.count("+" + hook.splitlines()[0] + "\n") != 1
+                or rebased.count("-" + hook.splitlines()[0] + "\n") != 1):
+            sys.exit("Incomplete hcheck relocation diff")
+        patch_for_apply = out / "adapted-mod_proxy_hcheck_jammy_fix_to_detect_support.patch"
+        patch_for_apply.write_text(rebased)
     if name == "handle-children-killed-pathologically.patch":
         # The two upstream first hunks add a single function-local counter,
         # but Focal server_main_loop() has a different signature. Rebase that
@@ -564,7 +619,8 @@ for name in jammy_series:
                                   "CVE-2026-106023.patch",
                                   "CVE-2026-7363X.patch",
                                   "CVE-2026-43951.patch",
-                                  "handle-children-killed-pathologically.patch")
+                                  "handle-children-killed-pathologically.patch",
+                                  "mod_proxy_hcheck_jammy_fix_to_detect_support.patch")
                       else "zero-fuzz sequential patch"))
     current.add(name)
 
