@@ -1,0 +1,823 @@
+
+====================CVE-2026-44119.patch====================
+Dry-run exit code: 1
+checking file include/ap_expr.h
+checking file modules/mappers/mod_rewrite.c
+Hunk #1 succeeded at 3607 (offset 2 lines).
+checking file modules/metadata/mod_setenvif.c
+checking file modules/proxy/mod_proxy_fcgi.c
+Hunk #1 succeeded at 1146 (offset -130 lines).
+checking file server/util_expr_eval.c
+Hunk #1 succeeded at 432 (offset -1 lines).
+Hunk #2 succeeded at 1635 (offset 2 lines).
+Hunk #3 succeeded at 1673 (offset 2 lines).
+Hunk #4 succeeded at 1687 (offset 2 lines).
+Hunk #5 FAILED at 1749.
+1 out of 5 hunks FAILED
+
+=== PATCH FILE: include/ap_expr.h ===
+--- a/include/ap_expr.h
++++ b/include/ap_expr.h
+@@ -66,6 +66,8 @@ typedef struct {
+ #define AP_EXPR_FLAG_RESTRICTED            4
+ /** Expression evaluates to a string, not to a bool */
+ #define AP_EXPR_FLAG_STRING_RESULT         8
++/** Don't allow functions/vars that expose content from the filesystem. */
++#define AP_EXPR_FLAG_RESTRICTED_FILE_FUNC   16
+ 
+ 
+ /**
+
+CURRENT FOCAL SOURCE LINES 51-120
+51     unsigned int flags;
+52     /** The module that is used for loglevel configuration */
+53     int module_index;
+54 } ap_expr_info_t;
+55 
+56 /** Use ssl_expr compatibility mode (changes the meaning of the comparison
+57  * operators)
+58  */
+59 #define AP_EXPR_FLAG_SSL_EXPR_COMPAT       1
+60 /** Don't add siginificant request headers to the Vary response header */
+61 #define AP_EXPR_FLAG_DONT_VARY             2
+62 /** Don't allow functions/vars that bypass the current request's access
+63  *  restrictions or would otherwise leak confidential information.
+64  *  Used by e.g. mod_include.
+65  */
+66 #define AP_EXPR_FLAG_RESTRICTED            4
+67 /** Expression evaluates to a string, not to a bool */
+68 #define AP_EXPR_FLAG_STRING_RESULT         8
+69 
+70 
+71 /**
+72  * Evaluate a parse tree, simple interface
+73  * @param r The current request
+74  * @param expr The expression to be evaluated
+75  * @param err Where an error message should be stored
+76  * @return > 0 if expression evaluates to true, == 0 if false, < 0 on error
+77  * @note err will be set to NULL on success, or to an error message on error
+78  * @note request headers used during evaluation will be added to the Vary:
+79  *       response header, unless ::AP_EXPR_FLAG_DONT_VARY is set.
+80  */
+81 AP_DECLARE(int) ap_expr_exec(request_rec *r, const ap_expr_info_t *expr,
+82                              const char **err);
+83 
+84 /**
+85  * Evaluate a parse tree, with access to regexp backreference
+86  * @param r The current request
+87  * @param expr The expression to be evaluated
+88  * @param nmatch size of the regex match vector pmatch
+89  * @param pmatch information about regex matches
+90  * @param source the string that pmatch applies to
+91  * @param err Where an error message should be stored
+92  * @return > 0 if expression evaluates to true, == 0 if false, < 0 on error
+93  * @note err will be set to NULL on success, or to an error message on error
+94  * @note nmatch/pmatch/source can be used both to make previous matches
+95  *       available to ap_expr_exec_re and to use ap_expr_exec_re's matches
+96  *       later on.
+97  * @note request headers used during evaluation will be added to the Vary:
+98  *       response header, unless ::AP_EXPR_FLAG_DONT_VARY is set.
+99  */
+100 AP_DECLARE(int) ap_expr_exec_re(request_rec *r, const ap_expr_info_t *expr,
+101                                 apr_size_t nmatch, ap_regmatch_t *pmatch,
+102                                 const char **source, const char **err);
+103 
+104 /** Context used during evaluation of a parse tree, created by ap_expr_exec */
+105 typedef struct {
+106     /** the current request */
+107     request_rec *r;
+108     /** the current connection */
+109     conn_rec *c;
+110     /** the current virtual host */
+111     server_rec *s;
+112     /** the pool to use */
+113     apr_pool_t *p;
+114     /** where to store the error string */
+115     const char **err;
+116     /** ap_expr_info_t for the expression */
+117     const ap_expr_info_t *info;
+118     /** regex match information for back references */
+119     ap_regmatch_t *re_pmatch;
+120     /** size of the vector pointed to by re_pmatch */
+
+=== PATCH FILE: modules/mappers/mod_rewrite.c ===
+--- a/modules/mappers/mod_rewrite.c
++++ b/modules/mappers/mod_rewrite.c
+@@ -3605,8 +3605,6 @@ static const char *cmd_rewritecond(cmd_p
+         int in_htaccess = cmd->pool == cmd->temp_pool;
+         unsigned int flags = newcond->flags & CONDFLAG_NOVARY ?
+                              AP_EXPR_FLAG_DONT_VARY : 0;
+-        /* Use restricted ap_expr() parser in htaccess context. */
+-        if (in_htaccess) flags |= AP_EXPR_FLAG_RESTRICTED;
+         newcond->expr = ap_expr_parse_cmd(cmd, a2, flags, &err, NULL);
+         if (err)
+             return apr_psprintf(cmd->pool, "RewriteCond: cannot compile "
+
+CURRENT FOCAL SOURCE LINES 3590-3659
+3590     }
+3591 
+3592     newcond->pskip = a2 - newcond->pattern;
+3593     newcond->pattern += newcond->pskip;
+3594 
+3595     if (newcond->ptype == CONDPAT_REGEX) {
+3596         regexp = ap_pregcomp(cmd->pool, a2,
+3597                              AP_REG_EXTENDED | ((newcond->flags & CONDFLAG_NOCASE)
+3598                                              ? AP_REG_ICASE : 0));
+3599         if (!regexp) {
+3600             return apr_pstrcat(cmd->pool, "RewriteCond: cannot compile regular "
+3601                                "expression '", a2, "'", NULL);
+3602         }
+3603 
+3604         newcond->regexp  = regexp;
+3605     }
+3606     else if (newcond->ptype == CONDPAT_AP_EXPR) {
+3607         int in_htaccess = cmd->pool == cmd->temp_pool;
+3608         unsigned int flags = newcond->flags & CONDFLAG_NOVARY ?
+3609                              AP_EXPR_FLAG_DONT_VARY : 0;
+3610         /* Use restricted ap_expr() parser in htaccess context. */
+3611         if (in_htaccess) flags |= AP_EXPR_FLAG_RESTRICTED;
+3612         newcond->expr = ap_expr_parse_cmd(cmd, a2, flags, &err, NULL);
+3613         if (err)
+3614             return apr_psprintf(cmd->pool, "RewriteCond: cannot compile "
+3615                                 "expression%s \"%s\" %s",
+3616                                 in_htaccess ? " in htaccess context" : "",
+3617                                 a2, err);
+3618     }
+3619 
+3620     return NULL;
+3621 }
+3622 
+3623 static const char *cmd_rewriterule_setflag(apr_pool_t *p, void *_cfg,
+3624                                            char *key, char *val)
+3625 {
+3626     rewriterule_entry *cfg = _cfg;
+3627     int error = 0;
+3628 
+3629     switch (*key++) {
+3630     case 'b':
+3631     case 'B':
+3632         if (!*key || !strcasecmp(key, "ackrefescaping")) {
+3633             cfg->flags |= RULEFLAG_ESCAPEBACKREF;
+3634             if (val && *val) { 
+3635                 cfg->escapes = val;
+3636             }
+3637         }
+3638         else if (!strcasecmp(key, "NP") || !strcasecmp(key, "ackrefernoplus")) { 
+3639             cfg->flags |= RULEFLAG_ESCAPENOPLUS;
+3640         }
+3641         else {
+3642             ++error;
+3643         }
+3644         break;
+3645     case 'c':
+3646     case 'C':
+3647         if (!*key || !strcasecmp(key, "hain")) {           /* chain */
+3648             cfg->flags |= RULEFLAG_CHAIN;
+3649         }
+3650         else if (((*key == 'O' || *key == 'o') && !key[1])
+3651                  || !strcasecmp(key, "ookie")) {           /* cookie */
+3652             data_item *cp = cfg->cookie;
+3653 
+3654             if (!cp) {
+3655                 cp = cfg->cookie = apr_palloc(p, sizeof(*cp));
+3656             }
+3657             else {
+3658                 while (cp->next) {
+3659                     cp = cp->next;
+
+=== PATCH FILE: modules/metadata/mod_setenvif.c ===
+--- a/modules/metadata/mod_setenvif.c
++++ b/modules/metadata/mod_setenvif.c
+@@ -424,11 +424,6 @@ static const char *add_setenvifexpr(cmd_
+     const char *err;
+     unsigned int flags = 0;
+ 
+-    /* Use restricted ap_expr() parser in htaccess context. */
+-    if (cmd->pool == cmd->temp_pool) {
+-        flags |= AP_EXPR_FLAG_RESTRICTED;
+-    }
+-
+     /*
+      * Determine from our context into which record to put the entry.
+      * cmd->path == NULL means we're in server-wide context; otherwise,
+
+CURRENT FOCAL SOURCE LINES 409-478
+409     /* get header name */
+410     fname = ap_getword_conf(cmd->pool, &args);
+411     if (!*fname) {
+412         return apr_pstrcat(cmd->pool, "Missing header-field name for ",
+413                            cmd->cmd->name, NULL);
+414     }
+415     return add_setenvif_core(cmd, mconfig, fname, args);
+416 }
+417 
+418 static const char *add_setenvifexpr(cmd_parms *cmd, void *mconfig,
+419                                     const char *args)
+420 {
+421     char *expr;
+422     sei_cfg_rec *sconf;
+423     sei_entry *new;
+424     const char *err;
+425     unsigned int flags = 0;
+426 
+427     /* Use restricted ap_expr() parser in htaccess context. */
+428     if (cmd->pool == cmd->temp_pool) {
+429         flags |= AP_EXPR_FLAG_RESTRICTED;
+430     }
+431 
+432     /*
+433      * Determine from our context into which record to put the entry.
+434      * cmd->path == NULL means we're in server-wide context; otherwise,
+435      * we're dealing with a per-directory setting.
+436      */
+437     sconf = (cmd->path != NULL)
+438       ? (sei_cfg_rec *) mconfig
+439       : (sei_cfg_rec *) ap_get_module_config(cmd->server->module_config,
+440                                                &setenvif_module);
+441     /* get expr */
+442     expr = ap_getword_conf(cmd->pool, &args);
+443     if (!*expr) {
+444         return apr_pstrcat(cmd->pool, "Missing expression for ",
+445                            cmd->cmd->name, NULL);
+446     }
+447 
+448     new = apr_array_push(sconf->conditionals);
+449     new->features = apr_table_make(cmd->pool, 2);
+450     new->name = NULL;
+451     new->regex = NULL;
+452     new->pattern = NULL;
+453     new->preg = NULL;
+454     new->expr = ap_expr_parse_cmd(cmd, expr, flags, &err, NULL);
+455     if (err)
+456         return apr_psprintf(cmd->pool, "Could not parse expression \"%s\": %s",
+457                             expr, err);
+458 
+459     return add_envvars(cmd, args, new);
+460 }
+461 
+462 /*
+463  * This routine handles the BrowserMatch* directives.  It simply turns around
+464  * and feeds them, with the appropriate embellishments, to the general-purpose
+465  * command handler.
+466  */
+467 static const char *add_browser(cmd_parms *cmd, void *mconfig, const char *args)
+468 {
+469     return add_setenvif_core(cmd, mconfig, "User-Agent", args);
+470 }
+471 
+472 static const command_rec setenvif_module_cmds[] =
+473 {
+474     AP_INIT_RAW_ARGS("SetEnvIf", add_setenvif, NULL, OR_FILEINFO,
+475                      "A header-name, regex and a list of variables."),
+476     AP_INIT_RAW_ARGS("SetEnvIfNoCase", add_setenvif, ICASE_MAGIC, OR_FILEINFO,
+477                      "a header-name, regex and a list of variables."),
+478     AP_INIT_RAW_ARGS("SetEnvIfExpr", add_setenvifexpr, NULL, OR_FILEINFO,
+
+=== PATCH FILE: modules/proxy/mod_proxy_fcgi.c ===
+--- a/modules/proxy/mod_proxy_fcgi.c
++++ b/modules/proxy/mod_proxy_fcgi.c
+@@ -1276,11 +1276,6 @@ static const char *cmd_setenv(cmd_parms
+     const char *envvar = arg2;
+     unsigned int flags = 0;
+ 
+-    /* Use restricted ap_expr() parser in htaccess context. */
+-    if (cmd->pool == cmd->temp_pool) {
+-        flags |= AP_EXPR_FLAG_RESTRICTED;
+-    }
+-
+     new = apr_array_push(dconf->env_fixups);
+     new->cond = ap_expr_parse_cmd(cmd, arg1, flags, &err, NULL);
+     if (err) {
+
+CURRENT FOCAL SOURCE LINES 1261-1216
+
+
+=== PATCH FILE: server/util_expr_eval.c ===
+--- a/server/util_expr_eval.c
++++ b/server/util_expr_eval.c
+@@ -433,6 +433,12 @@ AP_DECLARE(ap_expr_info_t*) ap_expr_pars
+     info->line_number = cmd->directive->line_num;
+     info->flags = flags;
+     info->module_index = module_index;
++
++    /* Use restricted-contents ap_expr() parser in htaccess context. */
++    if (cmd->pool == cmd->temp_pool) {
++        info->flags |= AP_EXPR_FLAG_RESTRICTED_FILE_FUNC;
++    }
++
+     *err = ap_expr_parse(cmd->pool, cmd->temp_pool, info, expr, lookup_fn);
+ 
+     if (*err)
+@@ -1627,11 +1633,15 @@ static int op_strcmatch(ap_expr_eval_ctx
+     return (APR_SUCCESS == apr_fnmatch(arg2, arg1, APR_FNM_CASE_BLIND));
+ }
+ 
++#define RESTRICTED_FILE_TEST 0x01
++#define RESTRICTED_FILE_FUNC 0x02
++#define RESTRICTED_ALL      (RESTRICTED_FILE_TEST | RESTRICTED_FILE_FUNC)
++
+ struct expr_provider_single {
+     const void *func;
+     const char *name;
+     ap_expr_lookup_fn_t *arg_parsing_func;
+-    int restricted;
++    unsigned int restricted;
+ };
+ 
+ struct expr_provider_multi {
+@@ -1661,8 +1671,8 @@ static const struct expr_provider_single
+     { toupper_func,         "toupper",        NULL, 0 },
+     { escape_func,          "escape",         NULL, 0 },
+     { unescape_func,        "unescape",       NULL, 0 },
+-    { file_func,            "file",           NULL, 1 },
+-    { filesize_func,        "filesize",       NULL, 1 },
++    { file_func,            "file",           NULL, RESTRICTED_FILE_FUNC },
++    { filesize_func,        "filesize",       NULL, RESTRICTED_FILE_FUNC },
+     { base64_func,          "base64",         NULL, 0 },
+     { unbase64_func,        "unbase64",       NULL, 0 },
+     { sha1_func,            "sha1",           NULL, 0 },
+@@ -1675,13 +1685,13 @@ static const struct expr_provider_single
+     { op_nz,        "z", NULL,             0 },
+     { op_R,         "R", subnet_parse_arg, 0 },
+     { op_T,         "T", NULL,             0 },
+-    { op_file_min,  "d", NULL,             1 },
+-    { op_file_min,  "e", NULL,             1 },
+-    { op_file_min,  "f", NULL,             1 },
+-    { op_file_min,  "s", NULL,             1 },
+-    { op_file_link, "L", NULL,             1 },
+-    { op_file_link, "h", NULL,             1 },
+-    { op_file_xbit, "x", NULL,             1 },
++    { op_file_min,  "d", NULL,             RESTRICTED_FILE_TEST },
++    { op_file_min,  "e", NULL,             RESTRICTED_FILE_TEST },
++    { op_file_min,  "f", NULL,             RESTRICTED_FILE_TEST },
++    { op_file_min,  "s", NULL,             RESTRICTED_FILE_TEST },
++    { op_file_link, "L", NULL,             RESTRICTED_FILE_TEST },
++    { op_file_link, "h", NULL,             RESTRICTED_FILE_TEST },
++    { op_file_xbit, "x", NULL,             RESTRICTED_FILE_TEST },
+     { op_file_subr, "F", NULL,             0 },
+     { op_url_subr,  "U", NULL,             0 },
+     { op_url_subr,  "A", NULL,             0 },
+@@ -1739,8 +1749,10 @@ static int core_expr_lookup(ap_expr_look
+                 else
+                     match = !ap_cstr_casecmp(prov->name, parms->name);
+                 if (match) {
+-                    if ((parms->flags & AP_EXPR_FLAG_RESTRICTED)
+-                        && prov->restricted) {
++                    if (((parms->flags & AP_EXPR_FLAG_RESTRICTED)
++                         && (prov->restricted & RESTRICTED_ALL))
++                        || ((parms->flags & AP_EXPR_FLAG_RESTRICTED_FILE_FUNC)
++                            && (prov->restricted & RESTRICTED_FILE_FUNC))) {
+                         *parms->err =
+                             apr_psprintf(parms->ptemp,
+                                          "%s%s not available in restricted context",
+
+CURRENT FOCAL SOURCE LINES 418-487
+418     info->root_node = ctx.expr;
+419 
+420     return NULL;
+421 }
+422 
+423 AP_DECLARE(ap_expr_info_t*) ap_expr_parse_cmd_mi(const cmd_parms *cmd,
+424                                                  const char *expr,
+425                                                  unsigned int flags,
+426                                                  const char **err,
+427                                                  ap_expr_lookup_fn_t *lookup_fn,
+428                                                  int module_index)
+429 {
+430     ap_expr_info_t *info = apr_pcalloc(cmd->pool, sizeof(ap_expr_info_t));
+431     info->filename = cmd->directive->filename;
+432     info->line_number = cmd->directive->line_num;
+433     info->flags = flags;
+434     info->module_index = module_index;
+435     *err = ap_expr_parse(cmd->pool, cmd->temp_pool, info, expr, lookup_fn);
+436 
+437     if (*err)
+438         return NULL;
+439 
+440     return info;
+441 }
+442 
+443 ap_expr_t *ap_expr_make(ap_expr_node_op_e op, const void *a1, const void *a2,
+444                       ap_expr_parse_ctx_t *ctx)
+445 {
+446     ap_expr_t *node = apr_palloc(ctx->pool, sizeof(ap_expr_t));
+447     node->node_op   = op;
+448     node->node_arg1 = a1;
+449     node->node_arg2 = a2;
+450     return node;
+451 }
+452 
+453 static ap_expr_t *ap_expr_info_make(int type, const char *name,
+454                                   ap_expr_parse_ctx_t *ctx,
+455                                   const ap_expr_t *arg)
+456 {
+457     ap_expr_t *info = apr_palloc(ctx->pool, sizeof(ap_expr_t));
+458     ap_expr_lookup_parms parms;
+459     parms.type  = type;
+460     parms.flags = ctx->flags;
+461     parms.pool  = ctx->pool;
+462     parms.ptemp = ctx->ptemp;
+463     parms.name  = name;
+464     parms.func  = &info->node_arg1;
+465     parms.data  = &info->node_arg2;
+466     parms.err   = &ctx->error2;
+467     parms.arg   = (arg && arg->node_op == op_String) ? arg->node_arg1 : NULL;
+468     if (ctx->lookup_fn(&parms) != OK)
+469         return NULL;
+470     return info;
+471 }
+472 
+473 ap_expr_t *ap_expr_str_func_make(const char *name, const ap_expr_t *arg,
+474                                ap_expr_parse_ctx_t *ctx)
+475 {
+476     ap_expr_t *info = ap_expr_info_make(AP_EXPR_FUNC_STRING, name, ctx, arg);
+477     if (!info)
+478         return NULL;
+479 
+480     info->node_op = op_StringFuncInfo;
+481     return ap_expr_make(op_StringFuncCall, info, arg, ctx);
+482 }
+483 
+484 ap_expr_t *ap_expr_list_func_make(const char *name, const ap_expr_t *arg,
+485                                 ap_expr_parse_ctx_t *ctx)
+486 {
+487     ap_expr_t *info = ap_expr_info_make(AP_EXPR_FUNC_LIST, name, ctx, arg);
+
+CURRENT FOCAL SOURCE LINES 1612-1681
+1612 }
+1613 
+1614 static int op_fnmatch(ap_expr_eval_ctx_t *ctx, const void *data,
+1615                       const char *arg1, const char *arg2)
+1616 {
+1617     return (APR_SUCCESS == apr_fnmatch(arg2, arg1, APR_FNM_PATHNAME));
+1618 }
+1619 
+1620 static int op_strmatch(ap_expr_eval_ctx_t *ctx, const void *data,
+1621                        const char *arg1, const char *arg2)
+1622 {
+1623     return (APR_SUCCESS == apr_fnmatch(arg2, arg1, 0));
+1624 }
+1625 
+1626 static int op_strcmatch(ap_expr_eval_ctx_t *ctx, const void *data,
+1627                         const char *arg1, const char *arg2)
+1628 {
+1629     return (APR_SUCCESS == apr_fnmatch(arg2, arg1, APR_FNM_CASE_BLIND));
+1630 }
+1631 
+1632 struct expr_provider_single {
+1633     const void *func;
+1634     const char *name;
+1635     ap_expr_lookup_fn_t *arg_parsing_func;
+1636     int restricted;
+1637 };
+1638 
+1639 struct expr_provider_multi {
+1640     const void *func;
+1641     const char **names;
+1642 };
+1643 
+1644 static const struct expr_provider_multi var_providers[] = {
+1645     { misc_var_fn, misc_var_names },
+1646     { req_header_var_fn, req_header_var_names },
+1647     { request_var_fn, request_var_names },
+1648     { conn_var_fn, conn_var_names },
+1649     { NULL, NULL }
+1650 };
+1651 
+1652 static const struct expr_provider_single string_func_providers[] = {
+1653     { osenv_func,           "osenv",          NULL, 0 },
+1654     { env_func,             "env",            NULL, 0 },
+1655     { req_table_func,       "resp",           NULL, 0 },
+1656     { req_table_func,       "req",            NULL, 0 },
+1657     /* 'http' as alias for 'req' for compatibility with ssl_expr */
+1658     { req_table_func,       "http",           NULL, 0 },
+1659     { req_table_func,       "note",           NULL, 0 },
+1660     { req_table_func,       "reqenv",         NULL, 0 },
+1661     { req_table_func,       "req_novary",     NULL, 0 },
+1662     { tolower_func,         "tolower",        NULL, 0 },
+1663     { toupper_func,         "toupper",        NULL, 0 },
+1664     { escape_func,          "escape",         NULL, 0 },
+1665     { unescape_func,        "unescape",       NULL, 0 },
+1666     { file_func,            "file",           NULL, 1 },
+1667     { filesize_func,        "filesize",       NULL, 1 },
+1668     { base64_func,          "base64",         NULL, 0 },
+1669     { unbase64_func,        "unbase64",       NULL, 0 },
+1670     { sha1_func,            "sha1",           NULL, 0 },
+1671     { md5_func,             "md5",            NULL, 0 },
+1672     { NULL, NULL, NULL}
+1673 };
+1674 
+1675 static const struct expr_provider_single unary_op_providers[] = {
+1676     { op_nz,        "n", NULL,             0 },
+1677     { op_nz,        "z", NULL,             0 },
+1678     { op_R,         "R", subnet_parse_arg, 0 },
+1679     { op_T,         "T", NULL,             0 },
+1680     { op_file_min,  "d", NULL,             1 },
+1681     { op_file_min,  "e", NULL,             1 },
+
+CURRENT FOCAL SOURCE LINES 1646-1715
+1646     { req_header_var_fn, req_header_var_names },
+1647     { request_var_fn, request_var_names },
+1648     { conn_var_fn, conn_var_names },
+1649     { NULL, NULL }
+1650 };
+1651 
+1652 static const struct expr_provider_single string_func_providers[] = {
+1653     { osenv_func,           "osenv",          NULL, 0 },
+1654     { env_func,             "env",            NULL, 0 },
+1655     { req_table_func,       "resp",           NULL, 0 },
+1656     { req_table_func,       "req",            NULL, 0 },
+1657     /* 'http' as alias for 'req' for compatibility with ssl_expr */
+1658     { req_table_func,       "http",           NULL, 0 },
+1659     { req_table_func,       "note",           NULL, 0 },
+1660     { req_table_func,       "reqenv",         NULL, 0 },
+1661     { req_table_func,       "req_novary",     NULL, 0 },
+1662     { tolower_func,         "tolower",        NULL, 0 },
+1663     { toupper_func,         "toupper",        NULL, 0 },
+1664     { escape_func,          "escape",         NULL, 0 },
+1665     { unescape_func,        "unescape",       NULL, 0 },
+1666     { file_func,            "file",           NULL, 1 },
+1667     { filesize_func,        "filesize",       NULL, 1 },
+1668     { base64_func,          "base64",         NULL, 0 },
+1669     { unbase64_func,        "unbase64",       NULL, 0 },
+1670     { sha1_func,            "sha1",           NULL, 0 },
+1671     { md5_func,             "md5",            NULL, 0 },
+1672     { NULL, NULL, NULL}
+1673 };
+1674 
+1675 static const struct expr_provider_single unary_op_providers[] = {
+1676     { op_nz,        "n", NULL,             0 },
+1677     { op_nz,        "z", NULL,             0 },
+1678     { op_R,         "R", subnet_parse_arg, 0 },
+1679     { op_T,         "T", NULL,             0 },
+1680     { op_file_min,  "d", NULL,             1 },
+1681     { op_file_min,  "e", NULL,             1 },
+1682     { op_file_min,  "f", NULL,             1 },
+1683     { op_file_min,  "s", NULL,             1 },
+1684     { op_file_link, "L", NULL,             1 },
+1685     { op_file_link, "h", NULL,             1 },
+1686     { op_file_xbit, "x", NULL,             1 },
+1687     { op_file_subr, "F", NULL,             0 },
+1688     { op_url_subr,  "U", NULL,             0 },
+1689     { op_url_subr,  "A", NULL,             0 },
+1690     { NULL, NULL, NULL }
+1691 };
+1692 
+1693 static const struct expr_provider_single binary_op_providers[] = {
+1694     { op_ipmatch,   "ipmatch",      subnet_parse_arg, 0 },
+1695     { op_fnmatch,   "fnmatch",      NULL,             0 },
+1696     { op_strmatch,  "strmatch",     NULL,             0 },
+1697     { op_strcmatch, "strcmatch",    NULL,             0 },
+1698     { NULL, NULL, NULL }
+1699 };
+1700 
+1701 static int core_expr_lookup(ap_expr_lookup_parms *parms)
+1702 {
+1703     switch (parms->type) {
+1704     case AP_EXPR_FUNC_VAR: {
+1705             const struct expr_provider_multi *prov = var_providers;
+1706             while (prov->func) {
+1707                 const char **name = prov->names;
+1708                 while (*name) {
+1709                     if (strcasecmp(*name, parms->name) == 0) {
+1710                         *parms->func = prov->func;
+1711                         *parms->data = name;
+1712                         return OK;
+1713                     }
+1714                     name++;
+1715                 }
+
+CURRENT FOCAL SOURCE LINES 1660-1729
+1660     { req_table_func,       "reqenv",         NULL, 0 },
+1661     { req_table_func,       "req_novary",     NULL, 0 },
+1662     { tolower_func,         "tolower",        NULL, 0 },
+1663     { toupper_func,         "toupper",        NULL, 0 },
+1664     { escape_func,          "escape",         NULL, 0 },
+1665     { unescape_func,        "unescape",       NULL, 0 },
+1666     { file_func,            "file",           NULL, 1 },
+1667     { filesize_func,        "filesize",       NULL, 1 },
+1668     { base64_func,          "base64",         NULL, 0 },
+1669     { unbase64_func,        "unbase64",       NULL, 0 },
+1670     { sha1_func,            "sha1",           NULL, 0 },
+1671     { md5_func,             "md5",            NULL, 0 },
+1672     { NULL, NULL, NULL}
+1673 };
+1674 
+1675 static const struct expr_provider_single unary_op_providers[] = {
+1676     { op_nz,        "n", NULL,             0 },
+1677     { op_nz,        "z", NULL,             0 },
+1678     { op_R,         "R", subnet_parse_arg, 0 },
+1679     { op_T,         "T", NULL,             0 },
+1680     { op_file_min,  "d", NULL,             1 },
+1681     { op_file_min,  "e", NULL,             1 },
+1682     { op_file_min,  "f", NULL,             1 },
+1683     { op_file_min,  "s", NULL,             1 },
+1684     { op_file_link, "L", NULL,             1 },
+1685     { op_file_link, "h", NULL,             1 },
+1686     { op_file_xbit, "x", NULL,             1 },
+1687     { op_file_subr, "F", NULL,             0 },
+1688     { op_url_subr,  "U", NULL,             0 },
+1689     { op_url_subr,  "A", NULL,             0 },
+1690     { NULL, NULL, NULL }
+1691 };
+1692 
+1693 static const struct expr_provider_single binary_op_providers[] = {
+1694     { op_ipmatch,   "ipmatch",      subnet_parse_arg, 0 },
+1695     { op_fnmatch,   "fnmatch",      NULL,             0 },
+1696     { op_strmatch,  "strmatch",     NULL,             0 },
+1697     { op_strcmatch, "strcmatch",    NULL,             0 },
+1698     { NULL, NULL, NULL }
+1699 };
+1700 
+1701 static int core_expr_lookup(ap_expr_lookup_parms *parms)
+1702 {
+1703     switch (parms->type) {
+1704     case AP_EXPR_FUNC_VAR: {
+1705             const struct expr_provider_multi *prov = var_providers;
+1706             while (prov->func) {
+1707                 const char **name = prov->names;
+1708                 while (*name) {
+1709                     if (strcasecmp(*name, parms->name) == 0) {
+1710                         *parms->func = prov->func;
+1711                         *parms->data = name;
+1712                         return OK;
+1713                     }
+1714                     name++;
+1715                 }
+1716                 prov++;
+1717             }
+1718         }
+1719         break;
+1720     case AP_EXPR_FUNC_STRING:
+1721     case AP_EXPR_FUNC_OP_UNARY:
+1722     case AP_EXPR_FUNC_OP_BINARY: {
+1723             const struct expr_provider_single *prov = NULL;
+1724             switch (parms->type) {
+1725             case AP_EXPR_FUNC_STRING:
+1726                 prov = string_func_providers;
+1727                 break;
+1728             case AP_EXPR_FUNC_OP_UNARY:
+1729                 prov = unary_op_providers;
+
+CURRENT FOCAL SOURCE LINES 1724-1793
+1724             switch (parms->type) {
+1725             case AP_EXPR_FUNC_STRING:
+1726                 prov = string_func_providers;
+1727                 break;
+1728             case AP_EXPR_FUNC_OP_UNARY:
+1729                 prov = unary_op_providers;
+1730                 break;
+1731             case AP_EXPR_FUNC_OP_BINARY:
+1732                 prov = binary_op_providers;
+1733                 break;
+1734             default:
+1735                 ap_assert(0);
+1736             }
+1737             while (prov && prov->func) {
+1738                 int match;
+1739                 if (parms->type == AP_EXPR_FUNC_OP_UNARY)
+1740                     match = !strcmp(prov->name, parms->name);
+1741                 else
+1742                     match = !strcasecmp(prov->name, parms->name);
+1743                 if (match) {
+1744                     if ((parms->flags & AP_EXPR_FLAG_RESTRICTED)
+1745                         && prov->restricted) {
+1746                         *parms->err =
+1747                             apr_psprintf(parms->ptemp,
+1748                                          "%s%s not available in restricted context",
+1749                                          (parms->type == AP_EXPR_FUNC_STRING) ? "" : "-",
+1750                                          prov->name);
+1751                         return !OK;
+1752                     }
+1753                     *parms->func = prov->func;
+1754                     if (prov->arg_parsing_func) {
+1755                         return prov->arg_parsing_func(parms);
+1756                     }
+1757                     else {
+1758                         *parms->data = prov->name;
+1759                         return OK;
+1760                     }
+1761                 }
+1762                 prov++;
+1763             }
+1764         }
+1765         break;
+1766     default:
+1767         break;
+1768     }
+1769     return DECLINED;
+1770 }
+1771 
+1772 static int expr_lookup_not_found(ap_expr_lookup_parms *parms)
+1773 {
+1774     const char *type;
+1775     const char *prefix = "";
+1776 
+1777     switch (parms->type) {
+1778     case AP_EXPR_FUNC_VAR:
+1779         type = "Variable";
+1780         break;
+1781     case AP_EXPR_FUNC_STRING:
+1782         type = "Function";
+1783         break;
+1784     case AP_EXPR_FUNC_LIST:
+1785         type = "List-returning function";
+1786         break;
+1787     case AP_EXPR_FUNC_OP_UNARY:
+1788         type = "Unary operator";
+1789         break;
+1790     case AP_EXPR_FUNC_OP_BINARY:
+1791         type = "Binary operator";
+1792         break;
+1793     default:
+
+====================CVE-2026-59797.patch====================
+Dry-run exit code: 0
+checking file modules/ssl/ssl_engine_config.c
+Hunk #1 succeeded at 1394 (offset -13 lines).
+
+=== PATCH FILE: modules/ssl/ssl_engine_config.c ===
+--- a/modules/ssl/ssl_engine_config.c
++++ b/modules/ssl/ssl_engine_config.c
+@@ -1407,6 +1407,9 @@ const char *ssl_cmd_SSLRequire(cmd_parms
+     info->filename = cmd->directive->filename;
+     info->line_number = cmd->directive->line_num;
+     info->module_index = APLOG_MODULE_INDEX;
++    if (cmd->pool == cmd->temp_pool) {
++        info->flags |= AP_EXPR_FLAG_RESTRICTED_FILE_FUNC;
++    }
+     errstring = ap_expr_parse(cmd->pool, cmd->temp_pool, info, arg, NULL);
+     if (errstring) {
+         return apr_pstrcat(cmd->pool, "SSLRequire: ", errstring, NULL);
+
+CURRENT FOCAL SOURCE LINES 1392-1461
+1392 
+1393     info->flags = AP_EXPR_FLAG_SSL_EXPR_COMPAT;
+1394     info->filename = cmd->directive->filename;
+1395     info->line_number = cmd->directive->line_num;
+1396     info->module_index = APLOG_MODULE_INDEX;
+1397     errstring = ap_expr_parse(cmd->pool, cmd->temp_pool, info, arg, NULL);
+1398     if (errstring) {
+1399         return apr_pstrcat(cmd->pool, "SSLRequire: ", errstring, NULL);
+1400     }
+1401 
+1402     require = apr_array_push(dc->aRequirement);
+1403     require->cpExpr = arg;
+1404     require->mpExpr = info;
+1405 
+1406     return NULL;
+1407 }
+1408 
+1409 const char *ssl_cmd_SSLRenegBufferSize(cmd_parms *cmd, void *dcfg, const char *arg)
+1410 {
+1411     SSLDirConfigRec *dc = dcfg;
+1412     int val;
+1413 
+1414     val = atoi(arg);
+1415     if (val < 0) {
+1416         return apr_pstrcat(cmd->pool, "Invalid size for SSLRenegBufferSize: ",
+1417                            arg, NULL);
+1418     }
+1419     dc->nRenegBufferSize = val;
+1420 
+1421     return NULL;
+1422 }
+1423 
+1424 static const char *ssl_cmd_protocol_parse(cmd_parms *parms,
+1425                                           const char *arg,
+1426                                           ssl_proto_t *options)
+1427 {
+1428     ssl_proto_t thisopt;
+1429 
+1430     *options = SSL_PROTOCOL_NONE;
+1431 
+1432     while (*arg) {
+1433         char *w = ap_getword_conf(parms->temp_pool, &arg);
+1434         char action = '\0';
+1435 
+1436         if ((*w == '+') || (*w == '-')) {
+1437             action = *(w++);
+1438         }
+1439 
+1440         if (strcEQ(w, "SSLv2")) {
+1441             if (action == '-') {
+1442                 continue;
+1443             }
+1444             else {
+1445                 return "SSLProtocol: SSLv2 is no longer supported";
+1446             }
+1447         }
+1448         else if (strcEQ(w, "SSLv3")) {
+1449 #ifdef OPENSSL_NO_SSL3
+1450             if (action != '-') {
+1451                 return "SSLv3 not supported by this version of OpenSSL";
+1452             }
+1453             /* Nothing to do, the flag is not present to be toggled */
+1454             continue;
+1455 #else
+1456             thisopt = SSL_PROTOCOL_SSLV3;
+1457 #endif
+1458         }
+1459         else if (strcEQ(w, "TLSv1")) {
+1460             thisopt = SSL_PROTOCOL_TLSV1;
+1461         }
