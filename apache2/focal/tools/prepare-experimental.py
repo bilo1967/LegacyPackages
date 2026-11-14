@@ -32,6 +32,22 @@ for name in jammy_series:
     if not upstream.is_file():
         decisions.append((name, "missing", "Missing upstream file"))
         continue
+    # This Jammy security feature needs a coordinated parser/headers backport.
+    # A patch can apply cleanly but use the new flag without importing its
+    # definition and enforcement. Do not produce an incomplete security fix.
+    added_lines = "\n".join(
+        line[1:] for line in upstream.read_text(errors="replace").splitlines()
+        if line.startswith("+") and not line.startswith("+++")
+    )
+    flag = "AP_EXPR_FLAG_RESTRICTED_FILE_FUNC"
+    header = focal / "include/ap_expr.h"
+    if flag in added_lines and flag not in header.read_text(errors="replace"):
+        decisions.append((
+            name, "blocked-dependency",
+            "Needs complete CVE-2026-44119 expression parser backport; "
+            "flag is undefined in Focal (NOT FIXED)"
+        ))
+        continue
     # Avoid accidentally interpreting patch text as a patch modifying paths
     # outside source tree: inspect first with git apply --check when possible.
     def execute(extra):
