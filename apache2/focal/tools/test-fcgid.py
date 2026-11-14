@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Test the Ubuntu Focal mod_fcgid binary against experimental Apache."""
 import http.client
+import subprocess
 from pathlib import Path
 import sys
 import time
@@ -10,12 +11,23 @@ CONF = Path("/etc/apache2/conf-available/unibo-fcgid.conf")
 
 def configure():
     CGI_PATH.parent.mkdir(parents=True, exist_ok=True)
-    CGI_PATH.write_text(
-        "#!/usr/bin/python3\n"
-        "import sys\n"
-        "sys.stdout.write('Content-Type: text/plain\\r\\n')\n"
-        "sys.stdout.write('X-Unibo-Fcgid: OK\\r\\n\\r\\n')\n"
-        "sys.stdout.write('unibo-fcgid-ok\\n')\n"
+    source = CGI_PATH.with_suffix(".c")
+    source.write_text(r"""
+#include <fcgi_stdio.h>
+int main(void) {
+    while (FCGI_Accept() >= 0) {
+        printf("Content-Type: text/plain\r\n");
+        printf("X-Unibo-Fcgid: OK\r\n\r\n");
+        printf("unibo-fcgid-ok\n");
+        fflush(stdout);
+    }
+    return 0;
+}
+""")
+    subprocess.run(
+        ["cc", "-O2", "-Wall", "-Wextra", "-o", str(CGI_PATH),
+         str(source), "-lfcgi"],
+        check=True,
     )
     CGI_PATH.chmod(0o755)
     CONF.write_text(
@@ -40,10 +52,14 @@ def verify():
                 body = response.read()
             finally:
                 conn.close()
+            if status != 200:
+                logs = Path("/var/log/apache2/error.log")
+                print(logs.read_text(errors="replace")[-6000:] if logs.exists()
+                      else "No Apache error log", file=sys.stderr)
             assert status == 200, (status, body)
             assert headers.get("x-unibo-fcgid") == "OK", headers
             assert body == b"unibo-fcgid-ok\n", body
-            print("PASS: Ubuntu Focal mod_fcgid executes a CGI program")
+            print("PASS: Ubuntu Focal mod_fcgid executes a FastCGI program")
             return
         except (OSError, http.client.HTTPException):
             if attempt == 14:
