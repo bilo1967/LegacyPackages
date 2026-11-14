@@ -5,7 +5,7 @@ import time
 
 HOST = "127.0.0.1"
 PATH = "/unibo-ci-test.txt"
-EXPECTED = b"unibo-focal-http-headers\\n"
+EXPECTED = b"unibo-focal-http-headers\n"
 
 
 def request(method, headers=None):
