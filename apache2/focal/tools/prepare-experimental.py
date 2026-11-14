@@ -330,10 +330,25 @@ for name in jammy_series:
             end_file = min(next_headers) + 1 if next_headers else len(upstream_text)
             first_hunk = upstream_text[first_pos:second_pos]
             second_hunk = upstream_text[second_pos:end_file]
-            if (first_hunk.count(expected_added) != 1
-                    or second_hunk.count("successive_kills") != 2
-                    or second_hunk.count("+            ++remaining_children_to_start;") != 1):
-                sys.exit("Unexpected MPM restart backport patch: " + rel_path)
+            # Check the actual security/restart changes rather than brittle
+            # substring counts (which depend on upstream comment wording).
+            required_restart = (
+                "+            if (++successive_kills >= 3) {",
+                "+            ++remaining_children_to_start;",
+                "+            successive_kills = 0;",
+                "+        if (remaining_children_to_start) {",
+            )
+            if (expected_added not in first_hunk
+                    or any(line not in second_hunk
+                           for line in required_restart)
+                    or second_hunk.count("\n@@ ") != 0):
+                sys.exit(
+                    "Unexpected MPM restart patch structure in " + rel_path
+                    + ": counter=" + str(expected_added in first_hunk)
+                    + ", restart=" + str([line in second_hunk
+                                         for line in required_restart])
+                    + ", second header=" + second_hunk.splitlines()[0]
+                )
             original_src = (focal / rel_path).read_text()
             # Patch the complete upstream restart hunk in isolation. We do
             # not loosen context or accept fuzz; copying into a temporary
