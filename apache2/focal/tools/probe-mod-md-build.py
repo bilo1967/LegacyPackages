@@ -52,8 +52,24 @@ if not ssl_header.is_file():
 header_dir = out / "jammy-header-only"
 header_dir.mkdir(exist_ok=True)
 shutil.copy2(ssl_header, header_dir / "http_ssl.h")
+# Local compatibility bridge, compiled into the candidate DSO only.
+# Focal mod_ssl provides ssl_is_https as an APR optional function.
+# No core exports, installed DSO, or module magic version are modified.
+bridge = md / "unibo_focal_ssl_compat.c"
+bridge.write_text("""\
+#include "httpd.h"
+#include "http_config.h"
+#include "apr_optional.h"
+APR_DECLARE_OPTIONAL_FN(int, ssl_is_https, (conn_rec *));
+int ap_ssl_conn_is_ssl(conn_rec *c)
+{
+    APR_OPTIONAL_FN_TYPE(ssl_is_https) *fn;
+    fn = APR_RETRIEVE_OPTIONAL_FN(ssl_is_https);
+    return fn ? fn(c) : 0;
+}
+""")
 args = [apxs, "-c", "-o", "mod_md.so", "-I" + str(md), "-I" + str(header_dir),
-        "-lssl", "-lcrypto", "-lcurl", "-ljansson"] + [str(f) for f in files]
+        "-lssl", "-lcrypto", "-lcurl", "-ljansson"] + [str(f) for f in files] + [str(bridge)]
 try:
     r = subprocess.run(args, cwd=md, capture_output=True, text=True,
                        errors="replace", timeout=480)
@@ -79,6 +95,7 @@ report = [
     "- WARNING: any resulting module is unsupported and must NOT be loaded or deployed.",
     "- ABI note: declarations do not provide missing Focal core/mod_ssl hooks or symbols.",
     "- DSO output explicitly selected via apxs -o mod_md.so.",
+    "- Experimental Focal-local SSL optional-function bridge built into DSO.",
     "- Source: Ubuntu Jammy patched Apache 2.4.52-1ubuntu4.27.",
     f"- Module object count: {len(files)} (complete Jammy config2.m4 md_objs).",
     f"- Compile status: **{status}** (exit code {code}).",
