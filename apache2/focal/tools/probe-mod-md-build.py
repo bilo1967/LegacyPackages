@@ -52,7 +52,7 @@ if not ssl_header.is_file():
 header_dir = out / "jammy-header-only"
 header_dir.mkdir(exist_ok=True)
 shutil.copy2(ssl_header, header_dir / "http_ssl.h")
-args = [apxs, "-c", "-I" + str(md), "-I" + str(header_dir),
+args = [apxs, "-c", "-o", "mod_md.so", "-I" + str(md), "-I" + str(header_dir),
         "-lssl", "-lcrypto", "-lcurl", "-ljansson"] + [str(f) for f in files]
 try:
     r = subprocess.run(args, cwd=md, capture_output=True, text=True,
@@ -78,6 +78,7 @@ report = [
     "- Minimum Apache 2.4.48 guard bypassed ONLY in disposable source copy.",
     "- WARNING: any resulting module is unsupported and must NOT be loaded or deployed.",
     "- ABI note: declarations do not provide missing Focal core/mod_ssl hooks or symbols.",
+    "- DSO output explicitly selected via apxs -o mod_md.so.",
     "- Source: Ubuntu Jammy patched Apache 2.4.52-1ubuntu4.27.",
     f"- Module object count: {len(files)} (complete Jammy config2.m4 md_objs).",
     f"- Compile status: **{status}** (exit code {code}).",
@@ -100,11 +101,21 @@ if status != "COMPILED_UNSUPPORTED":
 module = md / ".libs" / "mod_md.so"
 if not module.is_file():
     print("apxs returned success but did not produce .libs/mod_md.so")
+    print("DSO candidates:", [str(p) for p in md.rglob("*.so")])
     (out / "report.md").write_text(
         (out / "report.md").read_text()
         + "\n**Missing shared object after successful compiler exit.**\n"
     )
     sys.exit(1)
 print("Built unsupported diagnostic module:", module)
+nm = shutil.which("nm")
+if nm:
+    symbols = subprocess.run([nm, "-D", "--undefined-only", str(module)],
+                             capture_output=True, text=True, errors="replace")
+    (out / "undefined-symbols.txt").write_text(symbols.stdout + symbols.stderr)
+    with (out / "report.md").open("a") as report_file:
+        report_file.write("\n## Undefined dynamic symbols (first 100)\n\n~~~text\n")
+        report_file.write("\n".join(symbols.stdout.splitlines()[:100]))
+        report_file.write("\n~~~\n\nUnresolved Apache symbols require separate Focal API review.\n")
 print("NOT loading module: Apache 2.4.48 version guard bypassed; ABI unverified")
-sys.exit(1)
+

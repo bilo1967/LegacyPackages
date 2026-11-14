@@ -17,7 +17,7 @@ jobs:
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
-      - name: Compile full Jammy mod_md against stock Focal headers (diagnostic)
+      - name: Link Jammy mod_md in isolated Focal diagnostic without runtime load
         shell: bash
         run: |
           set -euo pipefail
@@ -42,30 +42,8 @@ jobs:
               (cd /tmp/jammy && apt-get source apache2=2.4.52-1ubuntu4.27)
               python3 /repo/apache2/focal/tools/probe-mod-md-build.py \
                 /tmp/jammy/apache2-2.4.52 /repo/output/mod-md-compatibility
-              # Runtime smoke test only after the complete module has linked.
-              mod=/tmp/jammy/apache2-2.4.52/modules/md/.libs/mod_md.so
-              test -s "$mod"
-              ldd "$mod" > /repo/output/mod-md-compatibility/ldd.txt
-              if grep -q "not found" /repo/output/mod-md-compatibility/ldd.txt; then
-                echo "Unresolved candidate mod_md dynamic dependency"
-                exit 1
-              fi
-              echo "ServerName localhost" > /etc/apache2/conf-available/unibo-md-ci.conf
-              a2enconf unibo-md-ci
-              a2dismod md || true
-              printf "LoadModule md_module %s\\n" "$mod" \
-                > /etc/apache2/mods-available/md_candidate.load
-              a2enmod md_candidate
-              apache2ctl -t
-              apache2ctl -M | grep -q md_module
-              printf "mod-md-candidate-load-ok\\n" > /var/www/html/mod-md-probe.txt
-              apache2ctl -k start
-              python3 -c "import urllib.request; assert urllib.request.urlopen(\"http://127.0.0.1/mod-md-probe.txt\", timeout=5).read().strip() == b\"mod-md-candidate-load-ok\""
-              apache2ctl -k stop
-              printf "\\n## Runtime load verification\\n\\n" \
-                >> /repo/output/mod-md-compatibility/report.md
-              printf "COMPILED, linked, Apache configuration passed, and HTTP smoke test passed.\\n" \
-                >> /repo/output/mod-md-compatibility/report.md
+              # Stop after compilation: Apache >=2.4.48 guard was bypassed.
+              # Do not load or install the unsupported diagnostic module.
             '
           cat output/mod-md-compatibility/report.md
       - name: Publish readable mod_md diagnostic summary
