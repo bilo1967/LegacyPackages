@@ -1,15 +1,9 @@
 name: Apache Focal Digest complete-patch candidate
 
+# Historical pre-integration candidate test. The full patch is now imported by
+# prepare-experimental.py; keep this workflow manual-only for archival triage.
 on:
   workflow_dispatch:
-  push:
-    branches: [backport/focal]
-    paths:
-      - '.github/workflows/apache2-focal-digest-candidate.yml'
-      - 'apache2/focal/tools/build-digest-candidate.py'
-      - 'apache2/focal/tools/prepare-experimental.py'
-      - 'apache2/focal/tools/test-digest-auth.py'
-      - 'apache2/focal/tools/test-digest-replay.py'
 
 permissions:
   contents: read
