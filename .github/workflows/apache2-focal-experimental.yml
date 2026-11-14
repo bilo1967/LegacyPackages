@@ -473,12 +473,24 @@ jobs:
           set -euo pipefail
           mkdir -p apache2/focal/analysis
           cp output/experimental-manifest.md apache2/focal/analysis/experimental-manifest.md
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add apache2/focal/analysis/experimental-manifest.md
-          if ! git diff --cached --quiet; then
-            git commit -m "ci(focal): publish patch manifest and Digest port conflicts"
-            git push origin HEAD:backport/focal
+          # Multiple experimental runs may complete out of order.
+          # Publish only when this run's checkout is still the branch tip;
+          # never overwrite a newer manifest or fail verified packages due
+          # to a harmless non-fast-forward push.
+          git fetch --no-tags origin refs/heads/backport/focal
+          remote_head=$(git rev-parse FETCH_HEAD)
+          if [ "$remote_head" != "$GITHUB_SHA" ]; then
+            echo "Skipping manifest push: newer branch tip $remote_head (run $GITHUB_SHA)"
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add apache2/focal/analysis/experimental-manifest.md
+            if ! git diff --cached --quiet; then
+              git commit -m "ci(focal): publish experimental patch manifest"
+              if ! git push origin HEAD:backport/focal; then
+                echo "Manifest push raced with another commit; retaining artifact without overwriting branch"
+              fi
+            fi
           fi
       - name: Upload experimental build outputs (not for production)
         uses: actions/upload-artifact@v4
