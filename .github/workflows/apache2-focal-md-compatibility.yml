@@ -29,7 +29,7 @@ jobs:
             ubuntu:20.04 bash -euc '
               apt-get update
               apt-get install -y --no-install-recommends \
-                apache2-dev build-essential dpkg-dev ca-certificates \
+                apache2 apache2-dev build-essential dpkg-dev ca-certificates \
                 libcurl4-openssl-dev libjansson-dev libssl-dev python3
               printf "deb-src http://archive.ubuntu.com/ubuntu jammy main universe\n" \
                 > /etc/apt/sources.list.d/jammy-probe.list
