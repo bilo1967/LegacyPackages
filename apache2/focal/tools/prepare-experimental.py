@@ -306,6 +306,17 @@ for name in jammy_series:
             sys.exit("Unexpected upstream hcheck optional AJP hook move")
         path = focal / rel_path
         before = path.read_text()
+        # Apache 2.4.41 Focal does not contain the later AJP optional-hook
+        # discovery implementation being moved by this Jammy patch.
+        # CPING exists in the proxy enum, but that alone does not make this
+        # relocation valid. Explicitly skip rather than invent a feature.
+        if "APR_RETRIEVE_OPTIONAL_FN(ajp_handle_cping_cpong)" not in before:
+            decisions.append((
+                name, "skipped",
+                "Focal mod_proxy_hcheck lacks AJP optional-hook detection "
+                "block; Jammy relocation is not directly applicable"
+            ))
+            continue
         hook = (
             "    ajp_handle_cping_cpong = APR_RETRIEVE_OPTIONAL_FN(ajp_handle_cping_cpong);\n"
             "    if (ajp_handle_cping_cpong) {\n"
