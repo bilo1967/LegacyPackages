@@ -80,24 +80,32 @@ for name in jammy_series:
             r"(?m)^@@ -[0-9]+(?:,[0-9]+)? \+[0-9]+(?:,[0-9]+)? @@[^\n]*\n",
             original,
         ))
-        if len(hunk_headers) != 3:
+        if len(hunk_headers) != 4:
             sys.exit("Unexpected CVE-2024-42516 hunk count: "
                      + str(len(hunk_headers)))
         removed = "".join("-" + line for line in old_calls.splitlines(keepends=True))
-        last = hunk_headers[-1]
-        old_body = original[last.end():]
+        matched = []
+        for idx, hunk in enumerate(hunk_headers):
+            hunk_end = (hunk_headers[idx + 1].start()
+                        if idx + 1 < len(hunk_headers) else len(original))
+            body = original[hunk.end():hunk_end]
+            if removed in body:
+                matched.append((hunk, hunk_end, body))
+        if len(matched) != 1:
+            sys.exit("CVE-2024-42516 keepalive deletion hunk not unique: "
+                     + str(len(matched)))
+        chosen, chosen_end, old_body = matched[0]
         if old_body.count(removed) != 1:
-            sys.exit("Unexpected CVE-2024-42516 keepalive deletion hunk; "
-                     "expected a unique original removal")
+            sys.exit("Unexpected CVE-2024-42516 keepalive deletion content")
         if any(line.startswith("+") for line in old_body.splitlines()):
-            sys.exit("CVE-2024-42516 final hunk has unexpected additions")
-        # Require precisely the original deletion (plus unchanged context).
-        if any(line.startswith("-") for line in old_body.splitlines()
-               if line not in removed.splitlines()):
-            sys.exit("Unexpected additional deletions in CVE-2024-42516 final hunk")
-        # Rebase the last hunk only; preserve the preceding three intact.
+            sys.exit("Unexpected CVE-2024-42516 additions in keepalive hunk")
+        if any(line.startswith("-") and line not in removed.splitlines()
+               for line in old_body.splitlines()):
+            sys.exit("Unexpected additional deletions in keepalive hunk")
+        # Adapt only this one hunk. Preserve all remaining security changes.
         replacement = "@@ -1454,4 +1357,0 @@\n" + removed
-        patched = original[:last.start()] + replacement
+        patched = (original[:chosen.start()] + replacement
+                   + original[chosen_end:])
         patch_for_apply = out / "adapted-CVE-2024-42516.patch"
         patch_for_apply.write_text(patched)
     if name == "CVE-2026-106023.patch":
