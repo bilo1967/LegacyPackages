@@ -8,6 +8,7 @@ Diagnostic only; no module installation or CVE remediation.
 - WARNING: any resulting module is unsupported and must NOT be loaded or deployed.
 - ABI note: declarations do not provide missing Focal core/mod_ssl hooks or symbols.
 - DSO output explicitly selected via apxs -o mod_md.so.
+- Experimental Focal-local SSL optional-function bridge built into DSO.
 - Source: Ubuntu Jammy patched Apache 2.4.52-1ubuntu4.27.
 - Module object count: 28 (complete Jammy config2.m4 md_objs).
 - Compile status: **COMPILED_UNSUPPORTED** (exit code 0).
@@ -132,7 +133,7 @@ Unresolved Apache symbols require separate Focal API review.
 ## Static ABI symbol audit
 
 - Present only in other installed Apache modules: 0
-- No provider found in inspected binaries: 103
+- No provider found in inspected binaries: 102
 - Details: symbol-audit.md
 
 ## Disposable-container load test
@@ -140,7 +141,7 @@ Unresolved Apache symbols require separate Focal API review.
 Exit code: 1
 
 ~~~text
-apache2: Syntax error on line 146 of /etc/apache2/apache2.conf: Syntax error on line 1 of /etc/apache2/mods-enabled/md_candidate.load: Cannot load /repo/output/mod-md-compatibility/mod-md-source-diagnostic/.libs/mod_md.so into server: /repo/output/mod-md-compatibility/mod-md-source-diagnostic/.libs/mod_md.so: undefined symbol: ap_ssl_conn_is_ssl
+apache2: Syntax error on line 146 of /etc/apache2/apache2.conf: Syntax error on line 1 of /etc/apache2/mods-enabled/md_candidate.load: Cannot load /repo/output/mod-md-compatibility/mod-md-source-diagnostic/.libs/mod_md.so into server: /repo/output/mod-md-compatibility/mod-md-source-diagnostic/.libs/mod_md.so: undefined symbol: ap_hook_ssl_add_fallback_cert_files
 Action '-t' failed.
 The Apache error log may have more information.
 
