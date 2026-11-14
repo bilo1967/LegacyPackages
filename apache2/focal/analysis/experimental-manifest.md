@@ -1,0 +1,75 @@
+# EXPERIMENTAL Apache Focal partial patch import
+
+Not for production use. No security completeness claim. Jammy source patches are not equivalent to verified Focal ESM.
+
+Version: \`2.4.41-4ubuntu3.23+unibo0~experiment1\`. Applied: 46; skipped: 19.
+
+| Patch | Decision | Reason |
+|---|---|---|
+| \`fix-macro.patch\` | applied | zero-fuzz sequential patch |
+| \`fix-a-possible-listener-deadlock.patch\` | skipped | 4 out of 6 hunks FAILED |
+| \`handle-children-killed-pathologically.patch\` | skipped | 1 out of 2 hunks FAILED |
+| \`mod_proxy_hcheck_jammy_fix_to_detect_support.patch\` | skipped | checking file mod_proxy_hcheck_jammy_fix_to_detect_support.patch |
+| \`reenable-workers-in-standard-error-state-jammy-apache2.patch\` | skipped | 1 out of 1 hunk FAILED |
+| \`CVE-2024-42516.patch\` | skipped | 1 out of 4 hunks FAILED |
+| \`CVE-2024-43204-pre1.patch\` | skipped | 1 out of 3 hunks FAILED |
+| \`CVE-2024-43204.patch\` | skipped | 2 out of 2 hunks FAILED |
+| \`CVE-2024-47252.patch\` | applied | zero-fuzz sequential patch |
+| \`CVE-2025-23048.patch\` | applied | zero-fuzz sequential patch |
+| \`CVE-2025-49630.patch\` | applied | zero-fuzz sequential patch |
+| \`CVE-2025-49812.patch\` | applied | zero-fuzz sequential patch |
+| \`CVE-2025-53020.patch\` | applied | zero-fuzz sequential patch |
+| \`CVE-2025-23048-regression.patch\` | skipped | 1 out of 4 hunks FAILED |
+| \`CVE-2025-23048-regression-2.patch\` | skipped | 1 out of 1 hunk FAILED |
+| \`CVE-2025-58098.patch\` | applied | zero-fuzz sequential patch |
+| \`CVE-2025-65082.patch\` | applied | zero-fuzz sequential patch |
+| \`CVE-2025-66200.patch\` | applied | zero-fuzz sequential patch |
+| \`CVE-2025-55753.patch\` | skipped | 17 out of 25 hunks FAILED |
+| \`CVE-2025-55753-3.patch\` | skipped | 1 out of 1 hunk ignored |
+| \`CVE-2026-23918.patch\` | applied | zero-fuzz sequential patch |
+| \`CVE-2026-24072.patch\` | applied | zero-fuzz sequential patch |
+| \`CVE-2026-28780.patch\` | applied | zero-fuzz sequential patch |
+| \`CVE-2026-29168.patch\` | skipped | 2 out of 2 hunks ignored |
+| \`CVE-2026-29169.patch\` | applied | zero-fuzz sequential patch |
+| \`CVE-2026-33006-1.patch\` | applied | zero-fuzz sequential patch |
+| \`CVE-2026-33006-2.patch\` | applied | zero-fuzz sequential patch |
+| \`CVE-2026-33007.patch\` | applied | zero-fuzz sequential patch |
+| \`CVE-2026-33523.patch\` | applied | zero-fuzz sequential patch |
+| \`CVE-2026-33857.patch\` | applied | zero-fuzz sequential patch |
+| \`CVE-2026-34032.patch\` | applied | zero-fuzz sequential patch |
+| \`CVE-2026-34059.patch\` | applied | zero-fuzz sequential patch |
+| \`CVE-2026-49975.patch\` | applied | zero-fuzz sequential patch |
+| \`CVE-2026-29167.patch\` | applied | zero-fuzz sequential patch |
+| \`CVE-2026-29170.patch\` | applied | zero-fuzz sequential patch |
+| \`CVE-2026-34355.patch\` | applied | zero-fuzz sequential patch |
+| \`CVE-2026-34356.patch\` | applied | zero-fuzz sequential patch |
+| \`CVE-2026-42535.patch\` | applied | zero-fuzz sequential patch |
+| \`CVE-2026-42536.patch\` | applied | zero-fuzz sequential patch |
+| \`CVE-2026-43951.patch\` | skipped | checking file modules/http2/h2_c2_filter.c |
+| \`CVE-2026-44119.patch\` | blocked-dependency | Needs complete CVE-2026-44119 expression parser backport; flag is undefined in Focal (NOT FIXED) |
+| \`CVE-2026-44185.patch\` | applied | zero-fuzz sequential patch |
+| \`CVE-2026-44186.patch\` | applied | zero-fuzz sequential patch |
+| \`CVE-2026-44631.patch\` | skipped | Hunk #1 succeeded at 321 (offset -5 lines). |
+| \`CVE-2026-48913.patch\` | skipped | checking file modules/http2/mod_proxy_http2.c |
+| \`CVE-2026-48913-2.patch\` | applied | zero-fuzz sequential patch |
+| \`CVE-2026-56154.patch\` | applied | zero-fuzz sequential patch |
+| \`CVE-2026-57941.patch\` | applied | zero-fuzz sequential patch |
+| \`CVE-2026-59797.patch\` | blocked-dependency | Needs complete CVE-2026-44119 expression parser backport; flag is undefined in Focal (NOT FIXED) |
+| \`CVE-2026-58415.patch\` | applied | zero-fuzz sequential patch |
+| \`CVE-2026-63045.patch\` | applied | zero-fuzz sequential patch |
+| \`CVE-2026-63292.patch\` | applied | zero-fuzz sequential patch |
+| \`CVE-2026-63686.patch\` | applied | zero-fuzz sequential patch |
+| \`CVE-2026-63718.patch\` | applied | zero-fuzz sequential patch |
+| \`CVE-2026-7363X.patch\` | skipped | 9 out of 55 hunks FAILED |
+| \`CVE-2026-79768.patch\` | applied | zero-fuzz sequential patch |
+| \`CVE-2026-93546.patch\` | applied | zero-fuzz sequential patch |
+| \`CVE-2026-46729.patch\` | applied | zero-fuzz sequential patch |
+| \`CVE-2026-47360.patch\` | applied | zero-fuzz sequential patch |
+| \`CVE-2026-56153.patch\` | applied | zero-fuzz sequential patch |
+| \`CVE-2026-56449.patch\` | applied | zero-fuzz sequential patch |
+| \`CVE-2026-106023.patch\` | skipped | Hunk #1 succeeded at 72 (offset -5 lines). |
+| \`CVE-2026-109163.patch\` | applied | zero-fuzz sequential patch |
+| \`CVE-2026-119618.patch\` | applied | zero-fuzz sequential patch |
+| \`CVE-2026-42528.patch\` | applied | zero-fuzz sequential patch |
+
+Next: review each source diff, add prerequisite patches and complete missing CVEs, then run regression and ABI tests.
