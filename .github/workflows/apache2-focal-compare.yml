@@ -2,6 +2,11 @@ name: Compare Ubuntu Apache security patch series
 
 on:
   workflow_dispatch:
+  push:
+    branches: [backport/focal]
+    paths:
+      - '.github/workflows/apache2-focal-compare.yml'
+      - 'apache2/focal/tools/**'
 
 permissions:
   contents: read
