@@ -318,8 +318,16 @@ for name in jammy_series:
             if not second:
                 sys.exit("Missing restart MPM hunk: " + rel_path)
             second_pos = first_pos + 3 + second.start()
-            next_file = upstream_text.find("\ndiff --git ", second_pos)
-            end_file = len(upstream_text) if next_file < 0 else next_file + 1
+            # Ubuntu uses plain unified diffs here, not necessarily
+            # 'diff --git' separators. Stop at the next file header;
+            # otherwise event.c's second hunk includes worker.c too.
+            next_headers = [
+                position for position in (
+                    upstream_text.find("\n--- a/", second_pos),
+                    upstream_text.find("\ndiff --git ", second_pos),
+                ) if position >= 0
+            ]
+            end_file = min(next_headers) + 1 if next_headers else len(upstream_text)
             first_hunk = upstream_text[first_pos:second_pos]
             second_hunk = upstream_text[second_pos:end_file]
             if (first_hunk.count(expected_added) != 1
