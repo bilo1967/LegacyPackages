@@ -1,0 +1,87 @@
+name: Apache Focal Digest complete-patch candidate
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [backport/focal]
+    paths:
+      - '.github/workflows/apache2-focal-digest-candidate.yml'
+      - 'apache2/focal/tools/build-digest-candidate.py'
+      - 'apache2/focal/tools/prepare-experimental.py'
+      - 'apache2/focal/tools/test-digest-auth.py'
+      - 'apache2/focal/tools/test-digest-replay.py'
+
+permissions:
+  contents: read
+
+jobs:
+  digest-candidate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build full patched Jammy Digest candidate as Focal debs
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p digest-candidate
+          docker run --rm --cpus=2 --memory=4g --pids-limit=256 \
+            --mount type=bind,source="$PWD",target=/repo \
+            --workdir /repo \
+            --env DEBIAN_FRONTEND=noninteractive \
+            ubuntu:20.04 bash -euc '
+              sed -n "s/^deb /deb-src /p" /etc/apt/sources.list >> /etc/apt/sources.list
+              apt-get update
+              apt-get install -y --no-install-recommends build-essential fakeroot dpkg-dev patch python3 ca-certificates
+              apt-get build-dep -y apache2
+              mkdir -p /tmp/focal /tmp/jammy /tmp/report
+              (cd /tmp/focal && apt-get source apache2=2.4.41-4ubuntu3.23)
+              printf "deb-src http://archive.ubuntu.com/ubuntu jammy main universe\ndeb-src http://archive.ubuntu.com/ubuntu jammy-updates main universe\ndeb-src http://security.ubuntu.com/ubuntu jammy-security main universe\n" > /etc/apt/sources.list.d/jammy-source.list
+              apt-get update
+              (cd /tmp/jammy && apt-get source apache2=2.4.52-1ubuntu4.27)
+              rm /etc/apt/sources.list.d/jammy-source.list
+              python3 /repo/apache2/focal/tools/prepare-experimental.py \
+                /tmp/focal/apache2-2.4.41 /tmp/jammy/apache2-2.4.52 /tmp/report
+              python3 /repo/apache2/focal/tools/build-digest-candidate.py \
+                /tmp/focal/apache2-2.4.41 /tmp/jammy/apache2-2.4.52 /repo/digest-candidate
+              cd /tmp/focal/apache2-2.4.41
+              dpkg-buildpackage -b -us -uc -j2
+              cp /tmp/focal/*.deb /repo/digest-candidate/
+              sha256sum /repo/digest-candidate/*.deb > /repo/digest-candidate/SHA256SUMS
+            '
+      - name: Require Digest authentication and replay checks to pass
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm --cpus=2 --memory=2g \
+            --mount type=bind,source="$PWD/digest-candidate",target=/build,readonly \
+            --mount type=bind,source="$PWD/apache2/focal/tools",target=/tests,readonly \
+            --env DEBIAN_FRONTEND=noninteractive \
+            ubuntu:20.04 bash -euc '
+              apt-get update
+              apt-get install -y --no-install-recommends \
+                /build/apache2-data_*.deb \
+                /build/apache2-utils_*.deb \
+                /build/apache2-bin_*.deb \
+                /build/apache2_*.deb \
+                python3
+              a2enmod auth_digest
+              echo ServerName localhost > /etc/apache2/conf-available/unibo-ci.conf
+              a2enconf unibo-ci
+              python3 /tests/test-digest-auth.py configure
+              apache2ctl -t
+              apache2ctl -M | grep -q auth_digest_module
+              apache2ctl -k start
+              python3 /tests/test-digest-auth.py verify
+              python3 /tests/test-digest-replay.py
+            '
+      - name: Upload complete candidate and diagnostic outputs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: focal-digest-complete-candidate
+          path: |
+            digest-candidate/digest-complete-candidate.patch
+            digest-candidate/digest-candidate-notes.txt
+            digest-candidate/SHA256SUMS
+          if-no-files-found: warn
