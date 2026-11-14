@@ -77,6 +77,7 @@ def main(version, destination):
         "php" + version + "-cli",
         "php" + version + "-readline",  # Required by the versioned CLI package.
         "php" + version + "-opcache",
+        "php" + version + "-fpm",
     ):
         download_verified(assets, package, dest, release_tag)
 
