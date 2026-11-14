@@ -1,0 +1,64 @@
+name: Triage Apache Jammy patches on Focal
+
+on:
+  push:
+    branches: [backport/focal]
+    paths:
+      - '.github/workflows/apache2-focal-triage.yml'
+      - 'apache2/focal/tools/triage-jammy-patches.py'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: apache2-focal-triage
+  cancel-in-progress: true
+
+jobs:
+  triage:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - name: Acquire Focal and Jammy patched source trees
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p work/focal work/jammy report
+          for release in focal jammy; do
+            if [ "$release" = focal ]; then image=ubuntu:20.04; else image=ubuntu:22.04; fi
+            docker run --rm --cpus=2 --memory=2g \
+              --mount type=bind,source="$PWD/work/$release",target=/output \
+              --env DEBIAN_FRONTEND=noninteractive "$image" bash -euc '
+                sed -n "s/^deb /deb-src /p" /etc/apt/sources.list >> /etc/apt/sources.list
+                apt-get update
+                apt-get install -y --no-install-recommends dpkg-dev ca-certificates
+                cd /output
+                apt-get source apache2
+              '
+          done
+      - name: Test candidate patch context without applying changes
+        run: |
+          python3 apache2/focal/tools/triage-jammy-patches.py \
+            work/focal/apache2-2.4.41 work/jammy/apache2-2.4.52 report
+
+      - name: Commit analysis report
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p apache2/focal/analysis
+          cp report/applicability.md apache2/focal/analysis/jammy-applicability.md
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add apache2/focal/analysis/jammy-applicability.md
+          if ! git diff --cached --quiet; then
+            git commit -m "ci(focal): publish candidate patch applicability report"
+            git push origin HEAD:backport/focal
+          fi
+      - name: Upload report
+        uses: actions/upload-artifact@v4
+        with:
+          name: focal-jammy-patch-triage
+          path: report/
+          retention-days: 14
