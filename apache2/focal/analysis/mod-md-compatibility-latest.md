@@ -128,3 +128,9 @@ the patched Focal Apache, ACME issuance, renewal, or OCSP behavior.
 ~~~
 
 Unresolved Apache symbols require separate Focal API review.
+
+## Static ABI symbol audit
+
+- Present only in other installed Apache modules: 0
+- No provider found in inspected binaries: 130
+- Details: symbol-audit.md
