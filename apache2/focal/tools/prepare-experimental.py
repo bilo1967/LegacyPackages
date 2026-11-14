@@ -6,6 +6,7 @@ zero-fuzz patches in original Jammy series order. It produces a manifest of
 skips. This does not establish complete CVE coverage or patch correctness.
 """
 import datetime
+import difflib
 import pathlib
 import re
 import shutil
@@ -134,6 +135,48 @@ for name in jammy_series:
                                   "CVE-2025-23048-regression.patch")
                       else "zero-fuzz sequential patch"))
     current.add(name)
+
+# Focal needs an explicit declaration visible at the point where mod_ssl.c
+# registers SSLVHostSNIPolicy. Carry the compatibility-only change as its own
+# auditable quilt patch rather than silently modifying an unpacked source.
+if ("CVE-2025-23048-regression.patch" in current
+        and "CVE-2025-23048-regression-2.patch" in current):
+    ssl_conf = (focal / "modules/ssl/ssl_engine_config.c").read_text()
+    assert "ssl_cmd_SSLVHostSNIPolicy(" in ssl_conf, (
+        "SNI policy command registered without an implementation"
+    )
+    modssl_file = focal / "modules/ssl/mod_ssl.c"
+    before = modssl_file.read_text()
+    signature = ("const char *ssl_cmd_SSLVHostSNIPolicy("
+                 "cmd_parms *cmd, void *dcfg, const char *arg);")
+    location = "static const command_rec ssl_config_cmds"
+    assert before.count(location) == 1
+    if signature not in before:
+        after = before.replace(location, signature + "\n\n" + location, 1)
+        diff = "".join(difflib.unified_diff(
+            before.splitlines(keepends=True),
+            after.splitlines(keepends=True),
+            fromfile="a/modules/ssl/mod_ssl.c",
+            tofile="b/modules/ssl/mod_ssl.c",
+        ))
+        assert diff.startswith("--- a/modules/ssl/mod_ssl.c")
+        name = "unibo-focal-sni-command-declaration.patch"
+        dest = focal / "debian/patches" / name
+        dest.write_text(diff)
+        result = subprocess.run(
+            ["patch", "--batch", "--forward", "--fuzz=0", "-p1",
+             "-i", str(dest)],
+            cwd=focal, text=True, capture_output=True, timeout=60,
+        )
+        if result.returncode:
+            sys.exit("Failed SNI command declaration backport: "
+                     + result.stdout + result.stderr)
+        with series_path.open("a") as file:
+            file.write(name + "\n")
+        decisions.append((
+            name, "applied",
+            "Focal-only prototype for SNI directive; regression-1/2 required"
+        ))
 
 # The SNI policy feature must not be delivered without its strict-policy
 # regression fix. Abort rather than packaging a partially corrected policy.
