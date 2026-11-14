@@ -53,7 +53,7 @@ for name in jammy_series:
         jammy_cmp = 'ap_cstr_casecmp(hdr->header, "Content-Type")'
         focal_cmp = 'strcasecmp(hdr->header, "Content-Type")'
         count = original.count(jammy_cmp)
-        expected = {"CVE-2024-43204-pre1.patch": 4,
+        expected = {"CVE-2024-43204-pre1.patch": 5,
                     "CVE-2024-43204.patch": 2}[name]
         if count != expected:
             sys.exit(f"Unexpected mod_headers patch layout for {name}: "
