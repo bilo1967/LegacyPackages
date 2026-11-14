@@ -1,0 +1,65 @@
+name: Inspect remaining Apache Focal security patch conflicts
+
+on:
+  push:
+    branches: [backport/focal]
+    paths:
+      - '.github/workflows/apache2-focal-skipped-inspect.yml'
+      - 'apache2/focal/tools/inspect-skipped.py'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: apache2-focal-skipped-inspect
+  cancel-in-progress: true
+
+jobs:
+  inspect:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch source packages and replay accepted patches
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p report
+          docker run --rm --cpus=2 --memory=3g \
+            --mount type=bind,source="$PWD",target=/repo \
+            --workdir /repo \
+            --env DEBIAN_FRONTEND=noninteractive \
+            ubuntu:20.04 bash -euc '
+              sed -n "s/^deb /deb-src /p" /etc/apt/sources.list >> /etc/apt/sources.list
+              apt-get update
+              apt-get install -y --no-install-recommends dpkg-dev python3 patch ca-certificates
+              mkdir -p /tmp/focal /tmp/jammy /tmp/report
+              (cd /tmp/focal && apt-get source apache2=2.4.41-4ubuntu3.23)
+              printf "deb-src http://archive.ubuntu.com/ubuntu jammy main universe\ndeb-src http://archive.ubuntu.com/ubuntu jammy-updates main universe\ndeb-src http://security.ubuntu.com/ubuntu jammy-security main universe\n" > /etc/apt/sources.list.d/jammy-source.list
+              apt-get update
+              (cd /tmp/jammy && apt-get source apache2=2.4.52-1ubuntu4.27)
+              python3 /repo/apache2/focal/tools/prepare-experimental.py /tmp/focal/apache2-2.4.41 /tmp/jammy/apache2-2.4.52 /tmp/report
+              python3 /repo/apache2/focal/tools/inspect-skipped.py /tmp/focal/apache2-2.4.41 /tmp/jammy/apache2-2.4.52 /tmp/report
+              cp /tmp/report/skipped-patch-diagnostics.md /repo/report/
+            '
+      - name: Publish diagnostics
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p apache2/focal/analysis
+          cp report/skipped-patch-diagnostics.md apache2/focal/analysis/skipped-patch-diagnostics.md
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add apache2/focal/analysis/skipped-patch-diagnostics.md
+          if ! git diff --cached --quiet; then
+            git commit -m "ci(focal): record remaining rejected security patch contexts"
+            git fetch origin backport/focal
+            git rebase origin/backport/focal
+            git push origin HEAD:backport/focal
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: apache-focal-skipped-hunk-diagnostics
+          path: report/
+          retention-days: 14
