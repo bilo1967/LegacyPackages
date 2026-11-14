@@ -180,13 +180,13 @@ jobs:
                 a2enmod proxy proxy_fcgi setenvif
                 echo ServerName localhost > /etc/apache2/conf-available/unibo-ci.conf
                 a2enconf unibo-ci
-                printf "%s\\n" \
-                  "<FilesMatch \\.php$>" \
-                  "    SetHandler \\"proxy:unix:/run/php/php${PHP_VERSION}-fpm.sock|fcgi://localhost/\\"" \
+                printf "%s\n" \
+                  "<FilesMatch \.php$>" \
+                  "    SetHandler \"proxy:unix:/run/php/php${PHP_VERSION}-fpm.sock|fcgi://localhost/\"" \
                   "</FilesMatch>" \
                   > /etc/apache2/conf-available/unibo-fpm.conf
                 a2enconf unibo-fpm
-                printf "<?php header(\\"X-Unibo-PHP: php8\\"); echo PHP_MAJOR_VERSION, \\".\\", PHP_MINOR_VERSION, \\"\\n\\"; ?>" > /var/www/html/unibo-php-test.php
+                printf "<?php header(\"X-Unibo-PHP: php8\"); echo PHP_MAJOR_VERSION, \".\", PHP_MINOR_VERSION, \"\n\"; ?>" > /var/www/html/unibo-php-test.php
                 apache2ctl -t
                 apache2ctl -M | grep -q mpm_event_module
                 apache2ctl -M | grep -q proxy_fcgi_module
