@@ -37,6 +37,31 @@ excluded = (
 if any(re.search(r"(?m)^" + re.escape(name) + r"\s*$", series)
        for name in excluded):
     sys.exit("mod_md group unexpectedly marked applied: manual review required")
+# The 2025 security series modifies far more than OCSP: map every source
+# touched and flag entirely new Jammy paths before considering a port.
+# Read the actual applied Ubuntu patch in the CI source checkout.
+patch_name = "CVE-2025-55753.patch"
+patch_path = jammy / "debian" / "patches" / patch_name
+if not patch_path.is_file():
+    sys.exit("Cannot evaluate mod_md security patch: missing " + str(patch_path))
+patch_text = patch_path.read_text()
+touched = sorted(set(re.findall(
+    r"(?m)^\+\+\+ b/(modules/md/[^\s]+)", patch_text
+)))
+if len(touched) < 25:
+    sys.exit("Unexpectedly small mod_md security patch footprint: "
+             + str(len(touched)))
+missing_paths = sorted(
+    name for name in touched if not (focal / name).is_file()
+)
+common_paths = sorted(
+    name for name in touched if (focal / name).is_file()
+)
+# Source compatibility is not proven by the presence of a file; the source
+# versions and API shape still differ significantly.
+if not missing_paths:
+    sys.exit("No newer source paths missing: re-check mod_md baseline")
+
 text = [
     "# Apache Focal experimental mod_md architecture audit",
     "",
@@ -47,6 +72,24 @@ text = [
     "- Focal lacks the OCSP source implementation present in Jammy:",
 ]
 text.extend(f"  - \`modules/md/{name}\`" for name in missing_ocsp)
+text += [
+    "",
+    "## Main CVE patch source footprint",
+    "",
+    f"- \`{patch_name}\` touches {len(touched)} distinct source/build files.",
+    f"- Files already present in Focal: {len(common_paths)}.",
+    f"- Files absent from Focal: {len(missing_paths)}.",
+    "",
+    "### Missing patched paths (require architecture-level port)",
+    "",
+]
+text.extend(f"- \`{name}\`" for name in missing_paths)
+text += [
+    "",
+    "### Common paths (still require source/API review)",
+    "",
+]
+text.extend(f"- \`{name}\`" for name in common_paths)
 text += [
     "",
     "## CVE disposition",
