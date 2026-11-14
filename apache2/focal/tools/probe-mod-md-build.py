@@ -117,5 +117,93 @@ if nm:
         report_file.write("\n## Undefined dynamic symbols (first 100)\n\n~~~text\n")
         report_file.write("\n".join(symbols.stdout.splitlines()[:100]))
         report_file.write("\n~~~\n\nUnresolved Apache symbols require separate Focal API review.\n")
+# Compare dynamic requirements against the actual Focal executable, the linked
+# libraries, and *separately* the installed modules. A symbol exported by an
+# installed but disabled module is NOT a runtime ABI guarantee.
+def dyn_symbols(binary, undefined=False):
+    command = [nm, "-D", "--undefined-only" if undefined else "--defined-only",
+               str(binary)]
+    result = subprocess.run(command, capture_output=True, text=True,
+                            errors="replace")
+    if result.returncode:
+        return set()
+    found = set()
+    for line in result.stdout.splitlines():
+        parts = line.split()
+        if len(parts) >= 2:
+            name = parts[-1].split("@", 1)[0]
+            if name:
+                found.add(name)
+    return found
+
+if nm:
+    needed = dyn_symbols(module, undefined=True)
+    core_binary = pathlib.Path("/usr/sbin/apache2")
+    core = dyn_symbols(core_binary) if core_binary.is_file() else set()
+    # ldd is limited to our locally built, disposable diagnostic module.
+    ld = subprocess.run(["ldd", str(module)], capture_output=True,
+                        text=True, errors="replace")
+    (out / "ldd.txt").write_text(ld.stdout + ld.stderr)
+    library_paths = set(re.findall(r"/[^\s()]+\.so(?:\.[0-9.]+)?", ld.stdout))
+    library_providers = {}
+    for library in sorted(library_paths):
+        for symbol in dyn_symbols(library):
+            library_providers.setdefault(symbol, library)
+
+    module_providers = {}
+    installed = pathlib.Path("/usr/lib/apache2/modules")
+    if installed.is_dir():
+        for candidate in sorted(installed.glob("*.so")):
+            # Old mod_md must not be treated as a provider for its replacement.
+            if candidate.name == "mod_md.so":
+                continue
+            for symbol in dyn_symbols(candidate):
+                module_providers.setdefault(symbol, []).append(candidate.name)
+
+    missing = sorted(needed - core - library_providers.keys())
+    optional = [(symbol, module_providers[symbol])
+                for symbol in missing if symbol in module_providers]
+    unprovided = [symbol for symbol in missing
+                  if symbol not in module_providers]
+    def lines(items):
+        return "\n".join(items) if items else "(none)"
+
+    audit = [
+        "# mod_md experimental ELF dependency audit",
+        "",
+        "This module is unsupported: the Apache >= 2.4.48 guard was bypassed.",
+        "No loading, installation, or security compatibility claim.",
+        "",
+        f"- Undefined dynamic symbols: {len(needed)}",
+        f"- Found in Focal Apache executable: {len(needed & core)}",
+        f"- Found in directly linked libraries: {len((needed - core) & library_providers.keys())}",
+        f"- Found only in other installed Apache modules: {len(optional)}",
+        f"- Not found in these providers: {len(unprovided)}",
+        "",
+        "## Exported by other installed modules (may be disabled)",
+        "",
+        "~~~text",
+        lines([f"{name}: {', '.join(providers)}" for name, providers in optional]),
+        "~~~",
+        "",
+        "## Not found in inspected Focal exports",
+        "",
+        "~~~text",
+        lines(unprovided),
+        "~~~",
+        "",
+        "This is a static symbol audit, not a runtime test. Module exports",
+        "may depend on load order; indirect library dependencies and dynamic",
+        "symbol lookups are not fully assessed.",
+        "",
+    ]
+    (out / "symbol-audit.md").write_text("\n".join(audit))
+    with (out / "report.md").open("a") as report_file:
+        report_file.write("\n## Static ABI symbol audit\n\n")
+        report_file.write(f"- Present only in other installed Apache modules: {len(optional)}\n")
+        report_file.write(f"- No provider found in inspected binaries: {len(unprovided)}\n")
+        report_file.write("- Details: symbol-audit.md\n")
+    print(f"Static ABI audit: {len(unprovided)} missing exports, "
+          f"{len(optional)} supplied only by installed Apache modules")
 print("NOT loading module: Apache 2.4.48 version guard bypassed; ABI unverified")
 
