@@ -259,8 +259,21 @@ for name in jammy_series:
             stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=60)
     check = execute(["--dry-run"])
     if name == "CVE-2024-42516.patch" and check.returncode:
-        sys.exit("Required CVE-2024-42516 patch not applied: "
-                 + check.stdout.strip()[-1200:])
+        # Fail closed, but expose the complete 4-hunk diff and failing
+        # source context to make the next explicit rebase reviewable.
+        patch_text = patch_for_apply.read_text(errors="replace")
+        print("=== CVE-2024-42516 adapted patch (complete) ===",
+              file=sys.stderr, flush=True)
+        print(patch_text[-18000:], file=sys.stderr, flush=True)
+        print("=== CVE-2024-42516 Focal response-header context ===",
+              file=sys.stderr, flush=True)
+        lines = (focal / "modules/http/http_filters.c").read_text(
+            errors="replace").splitlines()
+        for index, line in enumerate(lines, 1):
+            if 1300 <= index <= 1580:
+                print(f"{index}: {line}", file=sys.stderr)
+        sys.exit("Required CVE-2024-42516 patch not applied (fuzz=0): "
+                 + check.stdout.strip()[-2400:])
     if check.returncode != 0:
         decisions.append((name, "skipped", check.stdout.strip().splitlines()[-1][:180] if check.stdout.strip() else "Dry run rejected"))
         continue
