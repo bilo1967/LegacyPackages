@@ -1,0 +1,54 @@
+name: Experimental Apache Focal patch import
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [backport/focal]
+    paths:
+      - '.github/workflows/apache2-focal-experimental.yml'
+      - 'apache2/focal/tools/prepare-experimental.py'
+
+permissions:
+  contents: read
+
+jobs:
+  experimental:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build experimental source in Ubuntu Focal container
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p output
+          docker run --rm --cpus=2 --memory=4g --pids-limit=256 \
+            --mount type=bind,source="$PWD",target=/repo \
+            --workdir /repo \
+            --env DEBIAN_FRONTEND=noninteractive \
+            ubuntu:20.04 bash -euc '
+              sed -n "s/^deb /deb-src /p" /etc/apt/sources.list >> /etc/apt/sources.list
+              apt-get update
+              apt-get install -y --no-install-recommends build-essential fakeroot dpkg-dev patch python3 ca-certificates
+              apt-get build-dep -y apache2
+              mkdir -p /tmp/focal /tmp/jammy /tmp/report
+              (cd /tmp/focal && apt-get source apache2=2.4.41-4ubuntu3.23)
+              printf "deb-src http://archive.ubuntu.com/ubuntu jammy main universe\n" > /etc/apt/sources.list.d/jammy-source.list
+              apt-get update
+              (cd /tmp/jammy && apt-get source apache2=2.4.52-1ubuntu4.27)
+              rm /etc/apt/sources.list.d/jammy-source.list
+              python3 /repo/apache2/focal/tools/prepare-experimental.py \
+                /tmp/focal/apache2-2.4.41 /tmp/jammy/apache2-2.4.52 /tmp/report
+              cd /tmp/focal/apache2-2.4.41
+              dpkg-buildpackage -b -us -uc -j2
+              cp /tmp/focal/*.deb /repo/output/
+              cp /tmp/report/experimental-manifest.md /repo/output/
+              sha256sum /repo/output/*.deb > /repo/output/SHA256SUMS
+            '
+      - name: Upload experimental build outputs (not for production)
+        uses: actions/upload-artifact@v4
+        with:
+          name: apache2-focal-EXPERIMENTAL
+          path: output/
+          retention-days: 7
+          if-no-files-found: error
