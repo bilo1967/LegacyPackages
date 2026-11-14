@@ -1,0 +1,47 @@
+name: Apache Focal native mod_md CVE port review
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [backport/focal]
+    paths:
+      - '.github/workflows/apache2-focal-md-native.yml'
+      - 'apache2/focal/tools/inspect-md-native.py'
+
+permissions:
+  contents: read
+
+jobs:
+  review:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Inspect native Focal retry arithmetic and Jammy security hunks
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p output/mod-md-native
+          docker run --rm --cpus=2 --memory=2g --pids-limit=256 \
+            --mount type=bind,source="$PWD",target=/repo \
+            --env DEBIAN_FRONTEND=noninteractive \
+            ubuntu:20.04 bash -euc '
+              sed -n "s/^deb /deb-src /p" /etc/apt/sources.list >> /etc/apt/sources.list
+              apt-get update
+              apt-get install -y --no-install-recommends dpkg-dev ca-certificates python3
+              mkdir -p /tmp/focal /tmp/jammy
+              (cd /tmp/focal && apt-get source apache2=2.4.41-4ubuntu3.23)
+              printf "deb-src http://archive.ubuntu.com/ubuntu jammy main universe\ndeb-src http://archive.ubuntu.com/ubuntu jammy-updates main universe\ndeb-src http://security.ubuntu.com/ubuntu jammy-security main universe\n" > /etc/apt/sources.list.d/jammy-source.list
+              apt-get update
+              (cd /tmp/jammy && apt-get source apache2=2.4.52-1ubuntu4.27)
+              python3 /repo/apache2/focal/tools/inspect-md-native.py \
+                /tmp/focal/apache2-2.4.41 /tmp/jammy/apache2-2.4.52 \
+                /repo/output/mod-md-native/report.md
+            '
+          head -n 70 output/mod-md-native/report.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: focal-mod-md-native-port-review
+          path: output/mod-md-native/
+          if-no-files-found: warn
