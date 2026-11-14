@@ -15,6 +15,7 @@ on:
       - 'apache2/focal/tools/test-fcgid.py'
       - 'apache2/focal/tools/test-websocket-proxy.py'
       - 'apache2/focal/tools/test-apxs-abi.py'
+      - 'apache2/focal/tools/test-digest-auth.py'
 
 permissions:
   contents: write
@@ -290,6 +291,31 @@ jobs:
               apache2ctl -M | grep -q unibo_abi_module
               apache2ctl -k start
               python3 /tests/test-apxs-abi.py verify
+            '
+      - name: Smoke-test mod_auth_digest challenge and credentials on Focal
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm --cpus=2 --memory=2g \
+            --mount type=bind,source="$PWD/output",target=/build,readonly \
+            --mount type=bind,source="$PWD/apache2/focal/tools",target=/tests,readonly \
+            --env DEBIAN_FRONTEND=noninteractive \
+            ubuntu:20.04 bash -euc '
+              apt-get update
+              apt-get install -y --no-install-recommends \
+                /build/apache2-data_*.deb \
+                /build/apache2-utils_*.deb \
+                /build/apache2-bin_*.deb \
+                /build/apache2_*.deb \
+                python3
+              a2enmod auth_digest
+              echo ServerName localhost > /etc/apache2/conf-available/unibo-ci.conf
+              a2enconf unibo-ci
+              python3 /tests/test-digest-auth.py configure
+              apache2ctl -t
+              apache2ctl -M | grep -q auth_digest_module
+              apache2ctl -k start
+              python3 /tests/test-digest-auth.py verify
             '
       - name: Commit exact experimental patch manifest
         shell: bash
