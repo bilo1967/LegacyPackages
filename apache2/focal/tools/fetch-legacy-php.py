@@ -31,8 +31,10 @@ def get(url):
 def load_assets(tag):
     with get(REPO_API + tag) as response:
         release = json.load(response)
-    if release.get("draft") or release.get("prerelease"):
-        raise RuntimeError("Expected a published stable release: " + tag)
+    # These trusted Focal packages are deliberately published as prereleases.
+    # The API/tag and exact .deb names identify the requested build.
+    if release.get("draft"):
+        raise RuntimeError("Release is still a draft: " + tag)
     return {asset["name"]: asset for asset in release["assets"]}
 
 
