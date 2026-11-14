@@ -1,0 +1,46 @@
+name: Compare Ubuntu Apache security patch series
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  compare:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - name: Acquire official Focal and Jammy source packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p work/focal work/jammy report
+          for release in focal jammy; do
+            docker run --rm --cpus=2 --memory=2g \
+              --mount type=bind,source="$PWD/work/$release",target=/output \
+              --env DEBIAN_FRONTEND=noninteractive \
+              "ubuntu:$([ "$release" = focal ] && echo 20.04 || echo 22.04)" \
+              bash -euc '
+                sed -n "s/^deb /deb-src /p" /etc/apt/sources.list >> /etc/apt/sources.list
+                apt-get update
+                apt-get install -y --no-install-recommends dpkg-dev ca-certificates
+                cd /output
+                chmod 777 /output
+                apt-get source apache2
+                chmod -R a+rX /output
+              '
+          done
+      - name: Compare patch series and preserve candidates
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 apache2/focal/tools/compare-patches.py work/focal/apache2-2.4.41 work/jammy/apache2-2.4.52 report
+      - name: Upload comparison as analysis only
+        uses: actions/upload-artifact@v4
+        with:
+          name: focal-vs-jammy-patch-candidates
+          path: report/
+          retention-days: 14
+          if-no-files-found: error
