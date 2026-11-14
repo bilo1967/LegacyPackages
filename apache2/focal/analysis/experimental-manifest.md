@@ -11,15 +11,15 @@ Version: \`2.4.41-4ubuntu3.23+unibo0~experiment1\`. Applied: 57; skipped: 10.
 | \`handle-children-killed-pathologically.patch\` | skipped | 1 out of 2 hunks FAILED |
 | \`mod_proxy_hcheck_jammy_fix_to_detect_support.patch\` | skipped | checking file mod_proxy_hcheck_jammy_fix_to_detect_support.patch |
 | \`reenable-workers-in-standard-error-state-jammy-apache2.patch\` | skipped | 1 out of 1 hunk FAILED |
-| \`CVE-2024-42516.patch\` | applied | Focal strcasecmp context adapted (no security changes) |
-| \`CVE-2024-43204-pre1.patch\` | applied | Focal strcasecmp context adapted (no security changes) |
-| \`CVE-2024-43204.patch\` | applied | Focal strcasecmp context adapted (no security changes) |
+| \`CVE-2024-42516.patch\` | applied | zero-fuzz sequential patch |
+| \`CVE-2024-43204-pre1.patch\` | applied | Focal context adapted; see source diff (fuzz=0) |
+| \`CVE-2024-43204.patch\` | applied | Focal context adapted; see source diff (fuzz=0) |
 | \`CVE-2024-47252.patch\` | applied | zero-fuzz sequential patch |
 | \`CVE-2025-23048.patch\` | applied | zero-fuzz sequential patch |
 | \`CVE-2025-49630.patch\` | applied | zero-fuzz sequential patch |
 | \`CVE-2025-49812.patch\` | applied | zero-fuzz sequential patch |
 | \`CVE-2025-53020.patch\` | applied | zero-fuzz sequential patch |
-| \`CVE-2025-23048-regression.patch\` | applied | Focal strcasecmp context adapted (no security changes) |
+| \`CVE-2025-23048-regression.patch\` | applied | Focal context adapted; see source diff (fuzz=0) |
 | \`CVE-2025-23048-regression-2.patch\` | applied | zero-fuzz sequential patch |
 | \`CVE-2025-58098.patch\` | applied | zero-fuzz sequential patch |
 | \`CVE-2025-65082.patch\` | applied | zero-fuzz sequential patch |
@@ -46,10 +46,10 @@ Version: \`2.4.41-4ubuntu3.23+unibo0~experiment1\`. Applied: 57; skipped: 10.
 | \`CVE-2026-42535.patch\` | applied | zero-fuzz sequential patch |
 | \`CVE-2026-42536.patch\` | applied | zero-fuzz sequential patch |
 | \`CVE-2026-43951.patch\` | skipped | checking file modules/http2/h2_c2_filter.c |
-| \`CVE-2026-44119.patch\` | applied | Focal strcasecmp context adapted (no security changes) |
+| \`CVE-2026-44119.patch\` | applied | Focal context adapted; see source diff (fuzz=0) |
 | \`CVE-2026-44185.patch\` | applied | zero-fuzz sequential patch |
 | \`CVE-2026-44186.patch\` | applied | zero-fuzz sequential patch |
-| \`CVE-2026-44631.patch\` | applied | Focal strcasecmp context adapted (no security changes) |
+| \`CVE-2026-44631.patch\` | applied | Focal context adapted; see source diff (fuzz=0) |
 | \`CVE-2026-48913.patch\` | skipped | checking file modules/http2/mod_proxy_http2.c |
 | \`CVE-2026-48913-2.patch\` | applied | zero-fuzz sequential patch |
 | \`CVE-2026-56154.patch\` | applied | zero-fuzz sequential patch |
@@ -67,7 +67,7 @@ Version: \`2.4.41-4ubuntu3.23+unibo0~experiment1\`. Applied: 57; skipped: 10.
 | \`CVE-2026-47360.patch\` | applied | zero-fuzz sequential patch |
 | \`CVE-2026-56153.patch\` | applied | zero-fuzz sequential patch |
 | \`CVE-2026-56449.patch\` | applied | zero-fuzz sequential patch |
-| \`CVE-2026-106023.patch\` | applied | Focal strcasecmp context adapted (no security changes) |
+| \`CVE-2026-106023.patch\` | applied | Focal context adapted; see source diff (fuzz=0) |
 | \`CVE-2026-109163.patch\` | applied | zero-fuzz sequential patch |
 | \`CVE-2026-119618.patch\` | applied | zero-fuzz sequential patch |
 | \`CVE-2026-42528.patch\` | applied | zero-fuzz sequential patch |
