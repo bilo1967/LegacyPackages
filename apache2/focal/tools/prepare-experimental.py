@@ -402,7 +402,7 @@ for name in jammy_series:
             if (not diff.startswith("--- a/" + rel_path + "\n")
                     or (rel_path == paths[1]
                         and diff.count(
-                            "+    else if (PROXY_WORKER_IS_HCFAILED(worker) "
+                            "+    if (PROXY_WORKER_IS_HCFAILED(worker) "
                             "|| PROXY_WORKER_IS_ERROR(worker)) {\n") != 1)):
                 sys.exit("Failed proxy worker recovery diff: " + rel_path)
             edits.append(diff)
