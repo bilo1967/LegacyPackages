@@ -7,6 +7,7 @@ on:
     paths:
       - '.github/workflows/apache2-focal-experimental.yml'
       - 'apache2/focal/tools/prepare-experimental.py'
+      - 'apache2/focal/tools/test-http-headers.py'
 
 permissions:
   contents: write
