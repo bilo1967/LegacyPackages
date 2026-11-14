@@ -62,6 +62,41 @@ for name in jammy_series:
         patched = original.replace(jammy_cmp, focal_cmp)
         patch_for_apply = out / ("adapted-" + name)
         patch_for_apply.write_text(patched)
+    if name == "CVE-2024-42516.patch":
+        # The final Jammy hunk carries unrelated response-header context
+        # absent in Focal. Rebase ONLY that hunk to remove the same original
+        # keepalive sequence, without changing any security-sensitive code.
+        original = upstream.read_text()
+        old_calls = (
+            "    /* determine the protocol and whether we should use keepalives. */\n"
+            "    basic_http_header_check(r, &protocol);\n"
+            "    ap_set_keepalive(r);\n"
+            "\n"
+        )
+        http_src = (focal / "modules/http/http_filters.c").read_text()
+        if http_src.count(old_calls) != 1:
+            sys.exit("Cannot safely adapt CVE-2024-42516: keepalive block not unique")
+        hunk_match = re.search(
+            r"(?m)^@@ -1449,10 \\+1355,6 @@[^\\n]*\\n",
+            original,
+        )
+        if not hunk_match:
+            sys.exit("Unexpected CVE-2024-42516 final hunk header")
+        tail = original[hunk_match.end():]
+        next_header = re.search(r"(?m)^@@ |^--- a/", tail)
+        old_body = tail[:next_header.start()] if next_header else tail
+        removed = "".join("-" + line for line in old_calls.splitlines(keepends=True))
+        if old_body.count(removed) != 1:
+            sys.exit("Unexpected CVE-2024-42516 keepalive deletion hunk")
+        if any(line.startswith("+") for line in old_body.splitlines()):
+            sys.exit("CVE-2024-42516 final hunk has unexpected additions")
+        # This zero-context hunk matches a unique four-line original block.
+        # All other hunks, including the security refactor, stay untouched.
+        replacement = "@@ -1454,4 +1357,0 @@\n" + removed
+        patched = (original[:hunk_match.start()] + replacement
+                   + (tail[next_header.start():] if next_header else ""))
+        patch_for_apply = out / "adapted-CVE-2024-42516.patch"
+        patch_for_apply.write_text(patched)
     if name == "CVE-2026-106023.patch":
         # Only mod_md.c differs: regenerate its hunk against the exact Focal
         # HTTP-01 handler. Keep the upstream md_core/status hunks unchanged.
@@ -231,7 +266,8 @@ for name in jammy_series:
                                   "CVE-2024-43204.patch",
                                   "CVE-2025-23048-regression.patch",
                                   "CVE-2026-44631.patch",
-                                  "CVE-2026-106023.patch")
+                                  "CVE-2026-106023.patch",
+                                  "CVE-2024-42516.patch")
                       else "zero-fuzz sequential patch"))
     current.add(name)
 
