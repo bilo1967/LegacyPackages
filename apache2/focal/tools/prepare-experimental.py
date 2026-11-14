@@ -323,7 +323,7 @@ for name in jammy_series:
             first_hunk = upstream_text[first_pos:second_pos]
             second_hunk = upstream_text[second_pos:end_file]
             if (first_hunk.count(expected_added) != 1
-                    or second_hunk.count("successive_kills") < 3
+                    or second_hunk.count("successive_kills") != 2
                     or second_hunk.count("+            ++remaining_children_to_start;") != 1):
                 sys.exit("Unexpected MPM restart backport patch: " + rel_path)
             original_src = (focal / rel_path).read_text()
