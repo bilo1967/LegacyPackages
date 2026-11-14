@@ -27,8 +27,17 @@ if not all(f.is_file() for f in files):
 apxs = shutil.which("apxs") or shutil.which("apxs2")
 if not apxs:
     sys.exit("Focal apache2-dev missing apxs")
-args = [apxs, "-c", "-I" + str(md), "-lssl", "-lcrypto",
-        "-lcurl", "-ljansson"] + [str(f) for f in files]
+# Stage-2 diagnostic: isolate only the unavailable Jammy SSL API header.
+# This does NOT make that API available in Focal's runtime or guarantee ABI safety.
+# In particular, never add the whole Jammy include/ directory to the search path.
+ssl_header = root / "include" / "http_ssl.h"
+if not ssl_header.is_file():
+    sys.exit("Expected Jammy include/http_ssl.h missing")
+header_dir = out / "jammy-header-only"
+header_dir.mkdir(exist_ok=True)
+shutil.copy2(ssl_header, header_dir / "http_ssl.h")
+args = [apxs, "-c", "-I" + str(md), "-I" + str(header_dir),
+        "-lssl", "-lcrypto", "-lcurl", "-ljansson"] + [str(f) for f in files]
 try:
     r = subprocess.run(args, cwd=md, capture_output=True, text=True,
                        errors="replace", timeout=480)
@@ -49,6 +58,8 @@ report = [
     "Diagnostic only; no module installation or CVE remediation.",
     "",
     "- Environment: disposable Ubuntu 20.04 container, stock apache2-dev.",
+    "- Stage-2 diagnostic: only Jammy http_ssl.h supplied from isolated include path.",
+    "- ABI note: declarations do not provide missing Focal core/mod_ssl hooks or symbols.",
     "- Source: Ubuntu Jammy patched Apache 2.4.52-1ubuntu4.27.",
     f"- Module object count: {len(files)} (complete Jammy config2.m4 md_objs).",
     f"- Compile status: **{status}** (exit code {code}).",
