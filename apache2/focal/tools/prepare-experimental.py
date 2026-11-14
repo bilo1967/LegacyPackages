@@ -307,7 +307,7 @@ for name in jammy_series:
             sys.exit("Digest security source not in expected pre/post-patch state")
         # Focal uses standard strcasecmp(), unlike the newer ap_cstr_casecmp()
         # helper in Jammy. Its comparison semantics are equivalent here.
-        jammy_after = re.sub(r"\\bap_cstr_casecmp\\s*\\(", "strcasecmp(",
+        jammy_after = re.sub(r"\bap_cstr_casecmp\s*\(", "strcasecmp(",
                              jammy_after)
         # Preserve the upstream APR random+shared-memory configure prerequisite.
         # The source-level #error alone does not prevent autoconf from enabling
