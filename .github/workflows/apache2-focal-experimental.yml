@@ -11,6 +11,7 @@ on:
       - 'apache2/focal/tools/test-mod-php.py'
       - 'apache2/focal/tools/fetch-legacy-php.py'
       - 'apache2/focal/tools/test-legacy-php.py'
+      - 'apache2/focal/tools/test-ssl-rewrite.py'
 
 permissions:
   contents: write
@@ -198,6 +199,34 @@ jobs:
                 python3 /tests/test-legacy-php.py "$PHP_VERSION"
               '
           done
+      - name: Smoke-test TLS and mod_rewrite on experimental Apache Focal
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm --cpus=2 --memory=2g \
+            --mount type=bind,source="$PWD/output",target=/build,readonly \
+            --mount type=bind,source="$PWD/apache2/focal/tools",target=/tests,readonly \
+            --env DEBIAN_FRONTEND=noninteractive \
+            ubuntu:20.04 bash -euc '
+              apt-get update
+              apt-get install -y --no-install-recommends \
+                /build/apache2-data_*.deb \
+                /build/apache2-utils_*.deb \
+                /build/apache2-bin_*.deb \
+                /build/apache2_*.deb \
+                openssl ssl-cert python3
+              a2enmod ssl rewrite
+              a2ensite default-ssl
+              echo ServerName localhost > /etc/apache2/conf-available/unibo-ci.conf
+              a2enconf unibo-ci
+              printf "unibo-focal-http-headers\\n" > /var/www/html/unibo-ci-test.txt
+              python3 /tests/test-ssl-rewrite.py configure
+              apache2ctl -t
+              apache2ctl -M | grep -q ssl_module
+              apache2ctl -M | grep -q rewrite_module
+              apache2ctl -k start
+              python3 /tests/test-ssl-rewrite.py verify
+            '
       - name: Commit exact experimental patch manifest
         shell: bash
         run: |
