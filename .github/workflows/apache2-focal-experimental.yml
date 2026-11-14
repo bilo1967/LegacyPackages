@@ -330,11 +330,13 @@ jobs:
           set -euo pipefail
           mkdir -p apache2/focal/analysis
           cp output/experimental-manifest.md apache2/focal/analysis/experimental-manifest.md
+          cp output/digest-porting-audit.md apache2/focal/analysis/digest-porting-audit.md
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add apache2/focal/analysis/experimental-manifest.md
+          git add apache2/focal/analysis/experimental-manifest.md \
+            apache2/focal/analysis/digest-porting-audit.md
           if ! git diff --cached --quiet; then
-            git commit -m "ci(focal): publish experimental applied/skipped patch manifest"
+            git commit -m "ci(focal): publish patch manifest and Digest port conflicts"
             git push origin HEAD:backport/focal
           fi
       - name: Upload experimental build outputs (not for production)
