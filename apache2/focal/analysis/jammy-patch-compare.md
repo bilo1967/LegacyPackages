@@ -1,0 +1,132 @@
+# Ubuntu Apache patch series comparison
+
+Focal: Apache 2.4.41; Jammy: Apache 2.4.52.
+
+**Discovery only**: Jammy patch names are not a complete ESM patch list; different patch names do not establish missing CVE fixes. Do not install the resulting artifacts.
+
+Focal series entries: 78; Jammy: 108; names only in Jammy: 65.
+
+## CVE identifiers mentioned in Jammy filenames, but not Focal filenames
+
+- CVE-2024-42516
+- CVE-2024-43204
+- CVE-2024-47252
+- CVE-2025-23048
+- CVE-2025-49630
+- CVE-2025-49812
+- CVE-2025-53020
+- CVE-2025-55753
+- CVE-2025-58098
+- CVE-2025-65082
+- CVE-2025-66200
+- CVE-2026-106023
+- CVE-2026-109163
+- CVE-2026-119618
+- CVE-2026-23918
+- CVE-2026-24072
+- CVE-2026-28780
+- CVE-2026-29167
+- CVE-2026-29168
+- CVE-2026-29169
+- CVE-2026-29170
+- CVE-2026-33006
+- CVE-2026-33007
+- CVE-2026-33523
+- CVE-2026-33857
+- CVE-2026-34032
+- CVE-2026-34059
+- CVE-2026-34355
+- CVE-2026-34356
+- CVE-2026-42528
+- CVE-2026-42535
+- CVE-2026-42536
+- CVE-2026-43951
+- CVE-2026-44119
+- CVE-2026-44185
+- CVE-2026-44186
+- CVE-2026-44631
+- CVE-2026-46729
+- CVE-2026-47360
+- CVE-2026-48913
+- CVE-2026-49975
+- CVE-2026-56153
+- CVE-2026-56154
+- CVE-2026-56449
+- CVE-2026-57941
+- CVE-2026-58415
+- CVE-2026-59797
+- CVE-2026-63045
+- CVE-2026-63292
+- CVE-2026-63686
+- CVE-2026-63718
+- CVE-2026-7363
+- CVE-2026-79768
+- CVE-2026-93546
+
+## Jammy-only patch filenames
+
+- `fix-macro.patch`
+- `fix-a-possible-listener-deadlock.patch`
+- `handle-children-killed-pathologically.patch`
+- `mod_proxy_hcheck_jammy_fix_to_detect_support.patch`
+- `reenable-workers-in-standard-error-state-jammy-apache2.patch`
+- `CVE-2024-42516.patch`
+- `CVE-2024-43204-pre1.patch`
+- `CVE-2024-43204.patch`
+- `CVE-2024-47252.patch`
+- `CVE-2025-23048.patch`
+- `CVE-2025-49630.patch`
+- `CVE-2025-49812.patch`
+- `CVE-2025-53020.patch`
+- `CVE-2025-23048-regression.patch`
+- `CVE-2025-23048-regression-2.patch`
+- `CVE-2025-58098.patch`
+- `CVE-2025-65082.patch`
+- `CVE-2025-66200.patch`
+- `CVE-2025-55753.patch`
+- `CVE-2025-55753-3.patch`
+- `CVE-2026-23918.patch`
+- `CVE-2026-24072.patch`
+- `CVE-2026-28780.patch`
+- `CVE-2026-29168.patch`
+- `CVE-2026-29169.patch`
+- `CVE-2026-33006-1.patch`
+- `CVE-2026-33006-2.patch`
+- `CVE-2026-33007.patch`
+- `CVE-2026-33523.patch`
+- `CVE-2026-33857.patch`
+- `CVE-2026-34032.patch`
+- `CVE-2026-34059.patch`
+- `CVE-2026-49975.patch`
+- `CVE-2026-29167.patch`
+- `CVE-2026-29170.patch`
+- `CVE-2026-34355.patch`
+- `CVE-2026-34356.patch`
+- `CVE-2026-42535.patch`
+- `CVE-2026-42536.patch`
+- `CVE-2026-43951.patch`
+- `CVE-2026-44119.patch`
+- `CVE-2026-44185.patch`
+- `CVE-2026-44186.patch`
+- `CVE-2026-44631.patch`
+- `CVE-2026-48913.patch`
+- `CVE-2026-48913-2.patch`
+- `CVE-2026-56154.patch`
+- `CVE-2026-57941.patch`
+- `CVE-2026-59797.patch`
+- `CVE-2026-58415.patch`
+- `CVE-2026-63045.patch`
+- `CVE-2026-63292.patch`
+- `CVE-2026-63686.patch`
+- `CVE-2026-63718.patch`
+- `CVE-2026-7363X.patch`
+- `CVE-2026-79768.patch`
+- `CVE-2026-93546.patch`
+- `CVE-2026-46729.patch`
+- `CVE-2026-47360.patch`
+- `CVE-2026-56153.patch`
+- `CVE-2026-56449.patch`
+- `CVE-2026-106023.patch`
+- `CVE-2026-109163.patch`
+- `CVE-2026-119618.patch`
+- `CVE-2026-42528.patch`
