@@ -16,6 +16,7 @@ on:
       - 'apache2/focal/tools/test-websocket-proxy.py'
       - 'apache2/focal/tools/test-apxs-abi.py'
       - 'apache2/focal/tools/test-digest-auth.py'
+      - 'apache2/focal/tools/audit-digest-port.py'
 
 permissions:
   contents: write
@@ -48,6 +49,10 @@ jobs:
               rm /etc/apt/sources.list.d/jammy-source.list
               python3 /repo/apache2/focal/tools/prepare-experimental.py \
                 /tmp/focal/apache2-2.4.41 /tmp/jammy/apache2-2.4.52 /tmp/report
+              python3 /repo/apache2/focal/tools/audit-digest-port.py \
+                /tmp/focal/apache2-2.4.41 \
+                /tmp/jammy/apache2-2.4.52/debian/patches/CVE-2026-7363X.patch \
+                /repo/output/digest-porting-audit.md
               cd /tmp/focal/apache2-2.4.41
               dpkg-buildpackage -b -us -uc -j2
               cp /tmp/focal/*.deb /repo/output/
