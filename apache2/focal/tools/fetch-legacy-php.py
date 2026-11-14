@@ -51,9 +51,12 @@ def main(version, dest):
         "php" + version + "-common",
         "php" + version + "-cli",
         "php" + version + "-opcache",
+        # The 8.4 release includes the updated architecture-independent helper.
+        *(["php-common"] if version == "8.4" else []),
     ]
-    if version == "8.4":
-        packages.append("php-common")
+    # The distro Focal php-common (2:75) predates both current Sury
+    # branches. Fetch the version bundled by the 8.4 Focal release for
+    # both tests; it is architecture-independent.
     for package in packages:
         names = [name for name in by_name if name.startswith(package + "_") and name.endswith(".deb")]
         if len(names) != 1:
@@ -67,6 +70,33 @@ def main(version, dest):
         if digest.lower() != checksums[name]:
             raise RuntimeError("SHA256 mismatch for " + name)
         print("Verified", tag, name, flush=True)
+
+    if version == "8.3":
+        other_tag = VERSIONS["8.4"]
+        with get("https://api.github.com/repos/bilo1967/php83-legacy/releases/tags/"
+                 + other_tag) as src:
+            other_release = json.load(src)
+        other_assets = {a["name"]: a["browser_download_url"]
+                        for a in other_release["assets"]}
+        common_assets = [name for name in other_assets
+                         if name.startswith("php-common_") and name.endswith("_all.deb")]
+        if len(common_assets) != 1:
+            raise RuntimeError("Expected one PHP common package in " + other_tag)
+        checksum_path = root / "PHP84-SHA256SUMS"
+        download(other_assets["SHA256SUMS"], checksum_path)
+        digest_map = {}
+        for line in checksum_path.read_text().splitlines():
+            pieces = line.split()
+            if len(pieces) == 2 and len(pieces[0]) == 64:
+                digest_map[pathlib.PurePosixPath(pieces[1].removeprefix("*")).name] = pieces[0].lower()
+        common_name = common_assets[0]
+        if common_name not in digest_map:
+            raise RuntimeError("Missing common package checksum")
+        common_target = root / common_name
+        download(other_assets[common_name], common_target)
+        if hashlib.sha256(common_target.read_bytes()).hexdigest() != digest_map[common_name]:
+            raise RuntimeError("php-common SHA256 mismatch")
+        print("Verified", other_tag, common_name, flush=True)
 
 
 if __name__ == "__main__":
