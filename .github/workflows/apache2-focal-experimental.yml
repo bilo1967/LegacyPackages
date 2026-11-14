@@ -54,6 +54,12 @@ jobs:
                 /tmp/focal/apache2-2.4.41 \
                 /tmp/jammy/apache2-2.4.52/debian/patches/CVE-2026-7363X.patch \
                 /repo/output/digest-porting-audit.md
+              # Keep a standalone Jammy Digest implementation as an ABI/porting
+              # candidate. Never install it in the experimental Apache packages.
+              test -f /tmp/jammy/apache2-2.4.52/modules/aaa/mod_auth_digest.c
+              grep -q check_and_record_nonce /tmp/jammy/apache2-2.4.52/modules/aaa/mod_auth_digest.c
+              cp /tmp/jammy/apache2-2.4.52/modules/aaa/mod_auth_digest.c \
+                /repo/output/digest-jammy-candidate.c
               cd /tmp/focal/apache2-2.4.41
               dpkg-buildpackage -b -us -uc -j2
               cp /tmp/focal/*.deb /repo/output/
@@ -323,6 +329,36 @@ jobs:
               apache2ctl -k start
               python3 /tests/test-digest-auth.py verify
               python3 /tests/test-digest-replay.py
+            '
+      - name: Probe Jammy Digest CVE implementation against Focal Apache headers
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm --cpus=2 --memory=2g \
+            --mount type=bind,source="$PWD/output",target=/build,readonly \
+            --mount type=bind,source="$PWD/output",target=/results \
+            --env DEBIAN_FRONTEND=noninteractive \
+            ubuntu:20.04 bash -euc '
+              apt-get update
+              apt-get install -y --no-install-recommends \
+                /build/apache2-data_*.deb \
+                /build/apache2-utils_*.deb \
+                /build/apache2-bin_*.deb \
+                /build/apache2_*.deb \
+                /build/apache2-dev_*.deb \
+                build-essential
+              mkdir -p /tmp/digest-probe
+              cp /build/digest-jammy-candidate.c /tmp/digest-probe/mod_auth_digest.c
+              cd /tmp/digest-probe
+              set +e
+              apxs -c mod_auth_digest.c > /results/digest-candidate-compile.log 2>&1
+              rc=$?
+              set -e
+              printf "Jammy Digest candidate on Focal apxs: exit=%s\\n" "$rc" \
+                | tee /results/digest-candidate-result.txt
+              tail -n 60 /results/digest-candidate-compile.log
+              # Diagnostic only: never install this source into production
+              # packages, even when the candidate happens to compile.
             '
       - name: Commit exact experimental patch manifest
         shell: bash
