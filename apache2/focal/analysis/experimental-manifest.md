@@ -2,7 +2,7 @@
 
 Not for production use. No security completeness claim. Jammy source patches are not equivalent to verified Focal ESM.
 
-Version: \`2.4.41-4ubuntu3.23+unibo0~experiment1\`. Applied: 57; skipped: 10.
+Version: \`2.4.41-4ubuntu3.23+unibo0~experiment1\`. Applied: 59; skipped: 8.
 
 | Patch | Decision | Reason |
 |---|---|---|
@@ -45,7 +45,7 @@ Version: \`2.4.41-4ubuntu3.23+unibo0~experiment1\`. Applied: 57; skipped: 10.
 | \`CVE-2026-34356.patch\` | applied | zero-fuzz sequential patch |
 | \`CVE-2026-42535.patch\` | applied | zero-fuzz sequential patch |
 | \`CVE-2026-42536.patch\` | applied | zero-fuzz sequential patch |
-| \`CVE-2026-43951.patch\` | skipped | checking file modules/http2/h2_c2_filter.c |
+| \`CVE-2026-43951.patch\` | applied | Focal context adapted; see source diff (fuzz=0) |
 | \`CVE-2026-44119.patch\` | applied | Focal context adapted; see source diff (fuzz=0) |
 | \`CVE-2026-44185.patch\` | applied | zero-fuzz sequential patch |
 | \`CVE-2026-44186.patch\` | applied | zero-fuzz sequential patch |
@@ -60,7 +60,7 @@ Version: \`2.4.41-4ubuntu3.23+unibo0~experiment1\`. Applied: 57; skipped: 10.
 | \`CVE-2026-63292.patch\` | applied | zero-fuzz sequential patch |
 | \`CVE-2026-63686.patch\` | applied | zero-fuzz sequential patch |
 | \`CVE-2026-63718.patch\` | applied | zero-fuzz sequential patch |
-| \`CVE-2026-7363X.patch\` | skipped | 9 out of 55 hunks FAILED |
+| \`CVE-2026-7363X.patch\` | applied | Focal context adapted; see source diff (fuzz=0) |
 | \`CVE-2026-79768.patch\` | applied | zero-fuzz sequential patch |
 | \`CVE-2026-93546.patch\` | applied | zero-fuzz sequential patch |
 | \`CVE-2026-46729.patch\` | applied | zero-fuzz sequential patch |
