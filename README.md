@@ -1,19 +1,35 @@
 # LegacyPackages
 
-Repository for controlled Debian/Ubuntu package security backports.
+Security backports for legacy Ubuntu packages. The repository is public; this project is maintained independently and is **not an official Ubuntu or Apache distribution**.
 
-## Apache 2.4
+## Apache 2.4 for Ubuntu 20.04 (Focal)
 
-- `apache2/focal/`: Ubuntu 20.04 (Focal) workstream; baseline `2.4.41-4ubuntu3.23`.
-- `apache2/bionic/`: Ubuntu 18.04 (Bionic) workstream; baseline to be verified against the target host.
-- Keep Ubuntu's `debian/` packaging and apply reviewed, attributable security patches.
-- Build in isolated, release-matched environments; do not build or deploy on production hosts.
-- Track CVE applicability and test results before considering any packages releasable.
+**RC1 available for testing:** [Apache 2.4.41 for Ubuntu 20.04 - RC1](https://github.com/bilo1967/LegacyPackages/releases/tag/apache2-2.4.41-focal-rc1).
 
-## Status
+- Base: Ubuntu Focal `apache2 2.4.41-4ubuntu3.23`.
+- RC version: `2.4.41-4ubuntu3.23+unibo1~rc1`.
+- Objective: security backport retaining Ubuntu packaging, configuration handling and existing Apache module ABI (no recompilation of PHP or external modules required in the tested deployment).
+- 63 patches imported from Ubuntu Jammy's security patch series; four source patches excluded with [documented reasons](https://github.com/bilo1967/LegacyPackages/blob/backport/focal/apache2/focal/README.md). The native Focal `CVE-2025-55753` retry-overflow issue was mitigated separately and regression-tested.
+- [RC1 package build/test job passed](https://github.com/bilo1967/LegacyPackages/actions/runs/43698324239). Its release attachment step failed after build/test; the existing artifact is being reused rather than recompiled.
+- Maintainer reports the five RC Debian packages installed on an existing Focal host and initial Apache/PHP functionality working. This is a field smoke test, **not** a guarantee for every deployment.
 
-**Planning only.** No security patches have been applied or validated; no packages have been built. Do not deploy packages from this repository until build, regression, and security checks have passed.
+The original Apache `/etc/apache2` configuration is managed as normal Debian package conffiles. Preserve a backup and original Ubuntu `.deb` packages for rollback. PHP 8.3/8.4 packages were downloaded for disposable compatibility tests only; **they are not included in the Apache release and should not be upgraded as part of it**.
 
-## Operational precautions
+See [detailed build, test and recovery notes](https://github.com/bilo1967/LegacyPackages/blob/backport/focal/apache2/focal/README.md), [RC1 release description](https://github.com/bilo1967/LegacyPackages/blob/backport/focal/apache2/focal/RELEASE-RC1.md) and [patch manifest](https://github.com/bilo1967/LegacyPackages/blob/backport/focal/apache2/focal/analysis/experimental-manifest.md).
 
-Never commit private keys, certificates, credentials, customer data, or production Apache configuration. Keep source provenance and patch references alongside changes. Prefer signed APT publication when artifacts are eventually released.
+**Security scope:** the patch import and runtime tests do not establish exact equivalence with Canonical's Ubuntu Pro/ESM packages or a formal comprehensive security audit. Prefer official security updates where feasible.
+
+## Ubuntu 18.04 (Bionic)
+
+No Bionic binary release or working patch stream is provided. Although some recent CVEs also affect Apache 2.4.29, porting the Focal patch set would require significant new source-level adaptation. See [Bionic assessment](https://github.com/bilo1967/LegacyPackages/blob/backport/focal/apache2/bionic-evaluation.md). The preferred paths are official Ubuntu Pro/ESM packages, upgrading the host, or migrating suitable services to Caddy + PHP-FPM instead of another broad backport.
+
+## Sources, workflows and safety
+
+The full Focal source history and technical notes live on `backport/focal`; the default `main` branch is an overview, not the build source.
+
+- [Focal source branch](https://github.com/bilo1967/LegacyPackages/tree/backport/focal)
+- [Experimental source import and regression workflow](https://github.com/bilo1967/LegacyPackages/blob/backport/focal/.github/workflows/apache2-focal-experimental.yml)
+- [RC1 draft/release asset workflow](https://github.com/bilo1967/LegacyPackages/blob/backport/focal/.github/workflows/apache2-focal-rc-finalize.yml)
+- [Focal source provenance](https://github.com/bilo1967/LegacyPackages/blob/backport/focal/apache2/focal/source-provenance.md)
+
+Builds and tests run in disposable Ubuntu 20.04 Docker environments. Never commit private keys, credentials, host-specific production configs or personally identifying data. Validate any binary on a test machine and retain a rollback plan.
