@@ -1,0 +1,152 @@
+name: Apache Bionic - RC1 build and drop-in upgrade test
+
+on:
+  push:
+    branches: [backport/bionic]
+    paths:
+      - '.github/workflows/apache2-bionic-rc.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+    env:
+      APACHE_BIONIC_VERSION: '2.4.29-1ubuntu4.27+unibo1~rc1'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build exact Bionic Apache RC1 sources with five security patches
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p output dist
+          docker run --rm --cpus=2 --memory=4g --pids-limit=256 \
+            --mount type=bind,source="$PWD",target=/repo \
+            --workdir /repo -e DEBIAN_FRONTEND=noninteractive \
+            -e APACHE_BIONIC_VERSION \
+            ubuntu:18.04 bash -euc '
+              printf "deb http://archive.ubuntu.com/ubuntu bionic main universe\ndeb http://archive.ubuntu.com/ubuntu bionic-updates main universe\ndeb http://security.ubuntu.com/ubuntu bionic-security main universe\ndeb-src http://archive.ubuntu.com/ubuntu bionic main universe\ndeb-src http://archive.ubuntu.com/ubuntu bionic-updates main universe\ndeb-src http://security.ubuntu.com/ubuntu bionic-security main universe\n" > /etc/apt/sources.list
+              apt-get update
+              apt-get install -y --no-install-recommends build-essential fakeroot dpkg-dev patch quilt python3 wget ca-certificates
+              apt-get build-dep -y apache2
+              mkdir -p /tmp/bionic /tmp/jammy
+              cd /tmp/bionic
+              base=https://archive.ubuntu.com/ubuntu/pool/main/a/apache2
+              for suffix in .dsc .debian.tar.xz; do
+                wget -q "$base/apache2_2.4.29-1ubuntu4.27$suffix"
+              done
+              wget -q "$base/apache2_2.4.29.orig.tar.gz"
+              dpkg-source -x apache2_2.4.29-1ubuntu4.27.dsc
+              wget -q -O /tmp/jammy/debian.tar.xz "$base/apache2_2.4.52-1ubuntu4.27.debian.tar.xz"
+              tar -xJf /tmp/jammy/debian.tar.xz -C /tmp/jammy
+              python3 /repo/apache2/bionic/tools/prepare-four.py \
+                /tmp/bionic/apache2-2.4.29 /tmp/jammy /repo/output
+              cd /tmp/bionic/apache2-2.4.29
+              dpkg-buildpackage -b -us -uc -j2
+              cp /tmp/bionic/*.deb /repo/output/
+            ' > output/rc-build.log 2>&1 || {
+              tail -n 140 output/rc-build.log
+              exit 1
+            }
+          tail -n 35 output/rc-build.log
+      - name: Select exactly five versioned Apache packages and verify checksums
+        shell: bash
+        run: |
+          set -euo pipefail
+          for pkg in apache2 apache2-bin apache2-data apache2-dev apache2-utils; do
+            mapfile -t matches < <(find output -maxdepth 1 -type f -name "$pkg_*.deb")
+            test "${#matches[@]}" -eq 1
+            deb="${matches[0]}"
+            dpkg-deb -f "$deb" Package | grep -qx "$pkg"
+            dpkg-deb -f "$deb" Version | grep -Fx "$APACHE_BIONIC_VERSION"
+            cp "$deb" dist/
+          done
+          cp output/EXPERIMENTAL-MANIFEST.md dist/PATCH-MANIFEST.md
+          cp apache2/bionic/RELEASE-RC1.md dist/RELEASE-NOTES.md
+          (cd dist && sha256sum ./*.deb > SHA256SUMS && sha256sum -c SHA256SUMS)
+          (cd dist && tar -czf apache2-bionic-rc1-packages.tar.gz ./*.deb SHA256SUMS)
+          echo "Five Bionic RC packages selected; no PHP packages in dist"
+      - name: Download Niek PHP 7.4.33 test dependency archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p php74
+          curl --fail --location --retry 3 \
+            "https://github.com/Niek/php7/releases/download/v7.4.33-2/php7.4-ubuntu18.04-amd64.tar.xz" \
+            -o /tmp/php7.4-ubuntu18.04-amd64.tar.xz
+          tar -xJf /tmp/php7.4-ubuntu18.04-amd64.tar.xz -C php74
+          test -f php74/SHA256SUMS
+          (cd php74 && sha256sum -c SHA256SUMS)
+      - name: Simulate replacement on Bionic with Niek PHP installed and then smoke-test
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm --cpus=2 --memory=3g --pids-limit=256 \
+            --mount type=bind,source="$PWD/dist",target=/build,readonly \
+            --mount type=bind,source="$PWD/php74",target=/php,readonly \
+            -e DEBIAN_FRONTEND=noninteractive \
+            ubuntu:18.04 bash -euc '
+              apt-get update
+              # Mirror the relevant original host packages before the RC upgrade.
+              apt-get install -y --no-install-recommends \
+                apache2 apache2-dev wget
+              a2dismod mpm_event
+              a2enmod mpm_prefork
+              apt-get install -y --no-install-recommends \
+                /php/php7.4-common_*.deb \
+                /php/php7.4-json_*.deb /php/php7.4-opcache_*.deb \
+                /php/php7.4-readline_*.deb /php/php7.4-cli_*.deb \
+                /php/libapache2-mod-php7.4_*.deb
+              dpkg-query -W -f="${Package} ${Version}\n" \
+                php7.4-common php7.4-cli libapache2-mod-php7.4 > /tmp/php-before.txt
+              # Strictly check the APT simulation before modifying Apache.
+              apt-get -s install \
+                /build/apache2_*.deb /build/apache2-bin_*.deb \
+                /build/apache2-data_*.deb /build/apache2-utils_*.deb \
+                /build/apache2-dev_*.deb > /tmp/apt-simulation.txt
+              cat /tmp/apt-simulation.txt
+              for pkg in apache2 apache2-bin apache2-data apache2-utils apache2-dev; do
+                grep -q "^Inst $pkg " /tmp/apt-simulation.txt
+              done
+              if grep "^Inst " /tmp/apt-simulation.txt | \
+                   grep -Ev "^Inst (apache2|apache2-bin|apache2-data|apache2-utils|apache2-dev) "; then
+                echo "Unexpected package operation in APT simulation" >&2
+                exit 1
+              fi
+              if grep "^Remv " /tmp/apt-simulation.txt; then
+                echo "Unexpected APT removal" >&2
+                exit 1
+              fi
+              apt-get install -y --no-install-recommends \
+                /build/apache2_*.deb /build/apache2-bin_*.deb \
+                /build/apache2-data_*.deb /build/apache2-utils_*.deb \
+                /build/apache2-dev_*.deb
+              dpkg-query -W -f="${Package} ${Version}\n" \
+                php7.4-common php7.4-cli libapache2-mod-php7.4 > /tmp/php-after.txt
+              diff -u /tmp/php-before.txt /tmp/php-after.txt
+              a2enmod php7.4 ssl rewrite proxy proxy_http headers
+              echo ServerName localhost > /etc/apache2/conf-available/unibo-ci.conf
+              a2enconf unibo-ci
+              apache2ctl configtest
+              apache2ctl -M > /tmp/modules.txt
+              grep -q mpm_prefork_module /tmp/modules.txt
+              grep -q php7_module /tmp/modules.txt
+              grep -q ssl_module /tmp/modules.txt
+              grep -q rewrite_module /tmp/modules.txt
+              printf "%s\n" "<?php echo PHP_VERSION, \";ok\", PHP_SAPI; ?>" > /var/www/html/compatibility.php
+              apache2ctl -k start
+              wget -qO /tmp/php-output.txt http://127.0.0.1/compatibility.php
+              grep -qx "7.4.33;okapache2handler" /tmp/php-output.txt
+              dpkg-query -W apache2 apache2-bin apache2-data apache2-utils apache2-dev libapache2-mod-php7.4
+              echo "PASS: RC1 apt upgrade changes only Apache, Niek PHP 7.4.33 still works"
+            '
+      - name: Publish verified RC packages and archive (no automatic deployment)
+        uses: actions/upload-artifact@v4
+        with:
+          name: apache2-bionic-RC1
+          path: dist/
+          retention-days: 30
+          if-no-files-found: error
