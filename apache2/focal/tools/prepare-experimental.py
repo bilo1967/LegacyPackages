@@ -944,6 +944,45 @@ if ("CVE-2025-23048-regression.patch" in current
         and "CVE-2025-23048-regression-2.patch" not in current):
     sys.exit("SNI policy regression patch incomplete: missing regression-2")
 
+# Focal-native hardening for mod_md renewal retry arithmetic.  The Jammy
+# CVE-2025-55753 series contains many unrelated prerequisites that do not map
+# to Focal 2.0.10; this small fix does NOT mark that CVE remediated.
+# In particular a high, persistent error counter must not overflow int or
+# perform an undefined shift before the one-hour cap is applied.
+md_drive = focal / "modules/md/mod_md_drive.c"
+before = md_drive.read_text()
+old_backoff = "        delay = apr_time_from_sec(5 << (err_count - 1));"
+new_backoff = (
+    "        delay = (err_count >= 11)\n"
+    "                ? apr_time_from_sec(60 * 60)\n"
+    "                : apr_time_from_sec(5 << (err_count - 1));"
+)
+if before.count(old_backoff) != 1:
+    sys.exit("Unexpected Focal mod_md backoff implementation; review required")
+after = before.replace(old_backoff, new_backoff, 1)
+mod_md_diff = "".join(difflib.unified_diff(
+    before.splitlines(keepends=True),
+    after.splitlines(keepends=True),
+    fromfile="a/modules/md/mod_md_drive.c",
+    tofile="b/modules/md/mod_md_drive.c",
+))
+md_patch_name = "unibo-focal-mod-md-bounded-backoff.patch"
+md_dest = focal / "debian/patches" / md_patch_name
+md_dest.write_text(mod_md_diff)
+result = subprocess.run(
+    ["patch", "--batch", "--forward", "--fuzz=0", "-p1", "-i", str(md_dest)],
+    cwd=focal, text=True, capture_output=True, timeout=60,
+)
+if result.returncode:
+    sys.exit("Could not apply Focal-native mod_md bound: " +
+             result.stdout + result.stderr)
+with series_path.open("a") as file:
+    file.write(md_patch_name + "\n")
+(out / "mod-md-bounded-backoff.patch").write_text(mod_md_diff)
+assert new_backoff in md_drive.read_text()
+# The cap is 3600s. The first overflowing/unbounded exponent is never reached.
+assert (5 << 9) < 3600 and (5 << 10) > 3600
+
 # Verify the entire expression parser protection is present if imported.
 if "CVE-2026-44119.patch" in current:
     expr_header = (focal / "include/ap_expr.h").read_text()
@@ -979,6 +1018,8 @@ with (out / "experimental-manifest.md").open("w") as f:
     f.write("| Patch | Decision | Reason |\n|---|---|---|\n")
     for name, state, why in decisions:
         f.write(f"| \`{name}\` | {state} | {why.replace('|', '/') } |\n")
+    f.write("\nAdditional Focal-only hardening (not counted as a Jammy CVE fix): "
+            + md_patch_name + ". CVE-2025-55753 remains excluded.\n")
     f.write("\nNext: review each source diff, add prerequisite patches and complete "
             "missing CVEs, then run regression and ABI tests.\n")
 print(f"Applied {len(accepted)} candidate patches, skipped {len(skipped)}")
