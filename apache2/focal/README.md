@@ -108,3 +108,22 @@ For complete run history, use the [branch Actions listing](https://github.com/bi
 5. Produce signed/distributable artifacts only after acceptance. Current GitHub CI packages are labeled **EXPERIMENTAL / DO NOT DEPLOY** and must not be renamed release-ready automatically.
 
 **No production server has been changed by this repository workflow.** Keep its build output and the precise source SHA; re-run a workflow for ephemeral artifacts only when needed. For Ubuntu 18.04, see [Bionic assessment](../bionic-evaluation.md).
+
+## Draft release candidate workflow
+
+The draft pre-release `apache2-2.4.41-focal-rc1` uses
+[`Apache Focal - RC1 draft release packages`](../../.github/workflows/apache2-focal-rc.yml).
+Launch it manually on branch `backport/focal` using **Run workflow**.
+It calls the already tested experimental Docker matrix in reusable mode,
+but sets Debian version `2.4.41-4ubuntu3.23+unibo1~rc1`.
+Only after all required build/runtime tests pass does it check SHA256,
+verify that the release is still a draft and empty, pin the tag to the
+exact tested commit and upload the RC `.deb`, manifest, checksum file
+and release notes. It **never publishes** the GitHub release. A rerun
+against an already populated draft deliberately fails rather than
+silently overwriting existing binaries.
+
+The previous experimental workflow still runs with its original
+`...+unibo0~experiment1` version by default. RC builds do not publish
+their manifest commit back to `backport/focal`; their artifact and
+release attachment contain the exact tested manifest.

@@ -1,0 +1,105 @@
+name: Apache Focal - RC1 draft release packages
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-test:
+    uses: ./.github/workflows/apache2-focal-experimental.yml
+    with:
+      package_version: '2.4.41-4ubuntu3.23+unibo1~rc1'
+      release_candidate: true
+    permissions:
+      contents: write
+
+  attach-to-draft:
+    needs: build-and-test
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_TAG: apache2-2.4.41-focal-rc1
+      EXPECTED_VERSION: '2.4.41-4ubuntu3.23+unibo1~rc1'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download tested packages
+        uses: actions/download-artifact@v4
+        with:
+          name: apache2-focal-RC1
+          path: output
+      - name: Validate draft, packages, version and checksums
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = "refs/heads/backport/focal"
+          gh api "repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG" > /tmp/focal-release.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          release = json.loads(Path("/tmp/focal-release.json").read_text())
+          assert release["draft"] and release["prerelease"], "RC release must remain an unpublished pre-release"
+          assert release["tag_name"] == "apache2-2.4.41-focal-rc1"
+          assert release["target_commitish"] == "backport/focal"
+          assert not release["assets"], "RC draft already contains assets: refusing to overwrite"
+          PY
+          test -f output/SHA256SUMS
+          test -f output/experimental-manifest.md
+          (cd output && sha256sum -c SHA256SUMS)
+          python3 - <<'PY'
+          from pathlib import Path
+          manifest = Path("output/experimental-manifest.md").read_text()
+          assert "RELEASE CANDIDATE" in manifest
+          assert "Applied: 63; skipped: 4." in manifest
+          packages = sorted(Path("output").glob("*.deb"))
+          assert len(packages) >= 4, "Missing Apache Debian packages"
+          expected = "2.4.41-4ubuntu3.23+unibo1~rc1"
+          for package in packages:
+              assert expected in package.name, package.name
+          print("Checked", len(packages), "RC Debian packages")
+          PY
+          cp output/experimental-manifest.md output/PATCH-MANIFEST.md
+          cat > output/RELEASE-NOTES.md <<EOF
+          # Apache 2.4.41 for Ubuntu 20.04 (Focal) - RC1
+
+          Debian version: \`$EXPECTED_VERSION\`
+          Built from: \`$GITHUB_SHA\`
+          Git tag: \`$RELEASE_TAG\`
+
+          **Release candidate, not approved for production.**
+          Built and smoke-tested in disposable Ubuntu 20.04 containers.
+          63 Jammy candidate patches applied, four excluded with justification;
+          independent native Focal CVE-2025-55753 retry-overflow mitigation.
+
+          See PATCH-MANIFEST.md and README.md on this source commit.
+          Ubuntu Pro/ESM security equivalence is NOT claimed.
+          EOF
+      - name: Pin the release tag to the tested source commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --tags --force origin
+          existing=$(git rev-parse -q --verify "refs/tags/$RELEASE_TAG^{}" || true)
+          if [ -n "$existing" ]; then
+            test "$existing" = "$GITHUB_SHA" || {
+              echo "Tag already exists but points to a different source commit"
+              exit 1
+            }
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git tag -a "$RELEASE_TAG" -m "Apache Focal RC1 tested source" "$GITHUB_SHA"
+            git push origin "refs/tags/$RELEASE_TAG"
+          fi
+      - name: Upload tested RC packages to draft (do not publish)
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release upload "$RELEASE_TAG" \
+            output/*.deb output/SHA256SUMS \
+            output/PATCH-MANIFEST.md output/RELEASE-NOTES.md \
+            --repo "$GITHUB_REPOSITORY"
+          echo "Assets attached to draft $RELEASE_TAG; release remains unpublished" >> "$GITHUB_STEP_SUMMARY"

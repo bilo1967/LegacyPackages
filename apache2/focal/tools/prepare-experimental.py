@@ -6,6 +6,7 @@ zero-fuzz patches in original Jammy series order. It produces a manifest of
 skips. This does not establish complete CVE coverage or patch correctness.
 """
 import datetime
+import os
 import difflib
 import pathlib
 import re
@@ -1037,22 +1038,33 @@ if "CVE-2026-59797.patch" in current:
 
 accepted = [n for n, state, _ in decisions if state == "applied"]
 skipped = [n for n, state, _ in decisions if state != "applied"]
-# Version intentionally not deployable and distinguishable from sanctioned ESM
-version = "2.4.41-4ubuntu3.23+unibo0~experiment1"
+# The source/patch logic is identical for experiment and RC. Only packaging
+# metadata and artifact labels differ; the RC remains unapproved for deployment.
+release_candidate = os.environ.get("APACHE_RELEASE_CANDIDATE", "").lower() == "true"
+override = os.environ.get("APACHE_PACKAGE_VERSION", "")
+default_version = "2.4.41-4ubuntu3.23+unibo0~experiment1"
+version = override or default_version
+if release_candidate:
+    if version != "2.4.41-4ubuntu3.23+unibo1~rc1":
+        sys.exit("Unexpected RC Debian version: " + version)
+elif override:
+    sys.exit("Debian version override is permitted only in RC mode")
+channel = "RELEASE CANDIDATE" if release_candidate else "EXPERIMENTAL"
 changelog = focal / "debian/changelog"
 old = changelog.read_text()
 intro = (f"apache2 ({version}) focal; urgency=low\n\n"
-         "  * EXPERIMENTAL BUILD: incomplete backport, DO NOT DEPLOY.\n"
-         f"  * Import {len(accepted)} directly applicable Jammy quilt patches.\n"
-         f"  * {len(skipped)} other candidate patches not included; review pending.\n\n"
+         f"  * {channel} BUILD: not approved for production deployment.\n"
+         f"  * Import {len(accepted)} applicable Jammy candidate patches.\n"
+         f"  * {len(skipped)} other patch candidates excluded (see manifest).\n"
+         "  * Carry Focal-native mod_md bounded backoff and ABI adaptations.\n\n"
          " -- LegacyPackages CI <noreply@github.com>  "
          + datetime.datetime.now(datetime.timezone.utc).strftime("%a, %d %b %Y %H:%M:%S +0000")
          + "\n\n")
 changelog.write_text(intro + old)
 
 with (out / "experimental-manifest.md").open("w") as f:
-    f.write("# EXPERIMENTAL Apache Focal partial patch import\n\n")
-    f.write("Not for production use. No security completeness claim. "
+    f.write(f"# {channel} Apache Focal partial patch import\\n\\n".replace("\\n", "\n"))
+    f.write("Not approved for production. No ESM security equivalence claim. "
             "Jammy source patches are not equivalent to verified Focal ESM.\n\n")
     f.write(f"Version: \`{version}\`. Applied: {len(accepted)}; skipped: {len(skipped)}.\n\n")
     f.write("| Patch | Decision | Reason |\n|---|---|---|\n")
@@ -1066,6 +1078,7 @@ with (out / "experimental-manifest.md").open("w") as f:
             "(verified by CI). Not imported; mod_ssl OCSP is separate.\n")
     f.write("\nAdditional Focal-only hardening (not counted as a Jammy CVE fix): "
             + md_patch_name + ". CVE-2025-55753 remains excluded.\n")
-    f.write("\nNext: review each source diff, add prerequisite patches and complete "
-            "missing CVEs, then run regression and ABI tests.\n")
+    f.write("\nNative Focal ACME retry-overflow mitigation for CVE-2025-55753 is "
+            "documented in analysis/cve-2025-55753-focal.md. "
+            "Package remains a candidate pending release review.\n")
 print(f"Applied {len(accepted)} candidate patches, skipped {len(skipped)}")

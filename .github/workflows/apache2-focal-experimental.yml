@@ -1,6 +1,18 @@
 name: Experimental Apache Focal patch import
 
 on:
+  workflow_call:
+    inputs:
+      package_version:
+        description: "Optional Debian version override for release candidates"
+        required: false
+        type: string
+        default: ""
+      release_candidate:
+        description: "Build as a draft release candidate; never deploy"
+        required: false
+        type: boolean
+        default: false
   workflow_dispatch:
   push:
     branches: [backport/focal]
@@ -28,6 +40,9 @@ jobs:
   experimental:
     runs-on: ubuntu-24.04
     timeout-minutes: 55
+    env:
+      APACHE_PACKAGE_VERSION: ${{ inputs.package_version }}
+      APACHE_RELEASE_CANDIDATE: ${{ inputs.release_candidate }}
     steps:
       - uses: actions/checkout@v4
       - name: Build experimental source in Ubuntu Focal container
@@ -39,6 +54,8 @@ jobs:
             --mount type=bind,source="$PWD",target=/repo \
             --workdir /repo \
             --env DEBIAN_FRONTEND=noninteractive \
+            --env APACHE_PACKAGE_VERSION \
+            --env APACHE_RELEASE_CANDIDATE \
             ubuntu:20.04 bash -euc '
               sed -n "s/^deb /deb-src /p" /etc/apt/sources.list >> /etc/apt/sources.list
               apt-get update
@@ -499,6 +516,7 @@ jobs:
               # establish patch applicability or full CVE remediation.
             '
       - name: Commit exact experimental patch manifest
+        if: ${{ !inputs.release_candidate }}
         shell: bash
         run: |
           set -euo pipefail
@@ -526,7 +544,7 @@ jobs:
       - name: Upload experimental build outputs (not for production)
         uses: actions/upload-artifact@v4
         with:
-          name: apache2-focal-EXPERIMENTAL
+          name: ${{ inputs.release_candidate && 'apache2-focal-RC1' || 'apache2-focal-EXPERIMENTAL' }}
           path: output/
           retention-days: 7
           if-no-files-found: error
