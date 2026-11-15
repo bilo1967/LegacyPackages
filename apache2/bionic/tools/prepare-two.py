@@ -29,14 +29,14 @@ for name in candidates:
     # Confirm that a pristine Bionic source tree accepts the patch as-is.
     p = subprocess.run(
         ["patch", "--dry-run", "--batch", "--fuzz=0", "-p1", "-i", str(reference)],
-        cwd=src, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+        cwd=src, universal_newlines=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
         timeout=30)
     if p.returncode != 0 or "offset " in p.stdout or "fuzz " in p.stdout:
         sys.exit("Refusing candidate requiring a port: " + name + "\n" + p.stdout)
     shutil.copy2(reference, patch_dir / name)
     series_path.write_text(series_path.read_text().rstrip("\n") + "\n" + name + "\n")
     # Apply through quilt so dpkg-source state and packaging remain consistent.
-    q = subprocess.run(["quilt", "push", "-a"], cwd=src, text=True,
+    q = subprocess.run(["quilt", "push", "-a"], cwd=src, universal_newlines=True,
         stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
         env={**os.environ, "QUILT_PATCHES": "debian/patches",
              "QUILT_PATCH_OPTS": "--fuzz=0"}, timeout=45)
