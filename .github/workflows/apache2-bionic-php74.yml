@@ -1,0 +1,75 @@
+name: Bionic Apache experimental compatibility with Niek PHP 7.4.33
+
+on:
+  push:
+    branches: [backport/bionic]
+    paths:
+      - '.github/workflows/apache2-bionic-php74.yml'
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  smoke-php74:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download already compiled Bionic Apache packages
+        uses: actions/download-artifact@v4
+        with:
+          name: apache2-bionic-4CVE-EXPERIMENTAL
+          run-id: 43712616135
+          github-token: ${{ github.token }}
+          path: output
+      - name: Retrieve Niek's matching Ubuntu 18.04 PHP 7.4.33 packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p php74
+          curl --fail --location --retry 3 \
+            "https://github.com/Niek/php7/releases/download/v7.4.33-2/php7.4-ubuntu18.04-amd64.tar.xz" \
+            -o /tmp/php7.4-ubuntu18.04-amd64.tar.xz
+          tar -xJf /tmp/php7.4-ubuntu18.04-amd64.tar.xz -C php74
+          test -f php74/SHA256SUMS
+          (cd php74 && sha256sum -c SHA256SUMS)
+          test -n "$(find php74 -maxdepth 1 -name 'libapache2-mod-php7.4_*.deb' -print -quit)"
+          (cd output && sha256sum -c SHA256SUMS)
+      - name: Install Apache first, then verify Niek mod_php without touching host PHP
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm --cpus=2 --memory=3g --pids-limit=256 \
+            --mount type=bind,source="$PWD/output",target=/build,readonly \
+            --mount type=bind,source="$PWD/php74",target=/php,readonly \
+            -e DEBIAN_FRONTEND=noninteractive \
+            ubuntu:18.04 bash -euc '
+              apt-get update
+              apt-get install -y --no-install-recommends \
+                /build/apache2-data_*.deb /build/apache2-utils_*.deb \
+                /build/apache2-bin_*.deb /build/apache2_*.deb wget
+              a2dismod mpm_event
+              a2enmod mpm_prefork
+              apt-get install -y --no-install-recommends \
+                /php/php7.4-common_*.deb \
+                /php/php7.4-cli_*.deb \
+                /php/libapache2-mod-php7.4_*.deb
+              a2enmod php7.4 ssl rewrite proxy proxy_http headers
+              echo ServerName localhost > /etc/apache2/conf-available/unibo-ci.conf
+              a2enconf unibo-ci
+              apache2ctl -t
+              apache2ctl -M > /tmp/modules.txt
+              grep -q mpm_prefork_module /tmp/modules.txt
+              grep -q php7_module /tmp/modules.txt
+              grep -q ssl_module /tmp/modules.txt
+              grep -q rewrite_module /tmp/modules.txt
+              printf "%s\n" "<?php echo PHP_VERSION, \";ok\", PHP_SAPI; ?>" \
+                > /var/www/html/compatibility.php
+              apache2ctl -k start
+              wget -qO /tmp/php-response.txt http://127.0.0.1/compatibility.php
+              grep -q "^7.4.33;okapache2handler$" /tmp/php-response.txt
+              dpkg-query -W apache2 apache2-bin apache2-data apache2-utils libapache2-mod-php7.4 php7.4-common
+              echo "Bionic Apache + Niek PHP 7.4.33 smoke test successful"
+            '
