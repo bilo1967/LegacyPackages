@@ -1,0 +1,18 @@
+# Registration only: the real RC build workflow is on backport/focal.
+# In GitHub Actions use Run workflow -> branch backport/focal.
+name: Apache Focal - RC1 draft release packages
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  select-backport-branch:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Select the Focal backport branch
+        run: |
+          echo "::error::Select branch backport/focal to run the actual RC build."
+          exit 1
