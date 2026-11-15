@@ -57,7 +57,7 @@ jobs:
         run: |
           set -euo pipefail
           for pkg in apache2 apache2-bin apache2-data apache2-dev apache2-utils; do
-            mapfile -t matches < <(find output -maxdepth 1 -type f -name "$pkg_*.deb")
+            mapfile -t matches < <(find output -maxdepth 1 -type f -name "${pkg}_*.deb")
             test "${#matches[@]}" -eq 1
             deb="${matches[0]}"
             dpkg-deb -f "$deb" Package | grep -qx "$pkg"
@@ -100,7 +100,7 @@ jobs:
                 /php/php7.4-json_*.deb /php/php7.4-opcache_*.deb \
                 /php/php7.4-readline_*.deb /php/php7.4-cli_*.deb \
                 /php/libapache2-mod-php7.4_*.deb
-              dpkg-query -W -f="${Package} ${Version}\n" \
+              dpkg-query -W -f="\${Package} \${Version}\n" \
                 php7.4-common php7.4-cli libapache2-mod-php7.4 > /tmp/php-before.txt
               # Strictly check the APT simulation before modifying Apache.
               apt-get -s install \
@@ -124,7 +124,7 @@ jobs:
                 /build/apache2_*.deb /build/apache2-bin_*.deb \
                 /build/apache2-data_*.deb /build/apache2-utils_*.deb \
                 /build/apache2-dev_*.deb
-              dpkg-query -W -f="${Package} ${Version}\n" \
+              dpkg-query -W -f="\${Package} \${Version}\n" \
                 php7.4-common php7.4-cli libapache2-mod-php7.4 > /tmp/php-after.txt
               diff -u /tmp/php-before.txt /tmp/php-after.txt
               a2enmod php7.4 ssl rewrite proxy proxy_http headers
