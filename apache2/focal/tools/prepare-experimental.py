@@ -1004,6 +1004,25 @@ if feature_files or (md_source / "mod_md_ocsp.c").exists() or (md_source / "md_o
     "This is a feature applicability finding, NOT a blanket claim that "
     "Focal's certificate/OCSP implementation is free of vulnerabilities.\n"
 )
+# CVE-2026-29168 modifies the OCSP renewal engine md_ocsp.c, which
+# does not exist in Focal mod_md 2.0.10. Verify exactly which paths the
+# upstream patch changes, and reject any source architecture drift.
+ocsp_patch = (jammy / "debian/patches/CVE-2026-29168.patch").read_text()
+ocsp_paths = set(re.findall(r"(?m)^\+\+\+ b/(modules/md/[^\s]+)", ocsp_patch))
+if ocsp_paths != {"modules/md/md_ocsp.c"}:
+    sys.exit("Unexpected CVE-2026-29168 source footprint: " + repr(ocsp_paths))
+ocsp_native = focal / "modules/md/md_ocsp.c"
+if ocsp_native.exists() or (focal / "modules/md/mod_md_ocsp.c").exists():
+    sys.exit("Focal mod_md has newer OCSP engine: reassess CVE-2026-29168")
+(out / "mod-md-ocsp-disposition.md").write_text(
+    "# CVE-2026-29168 applicability to Focal mod_md\n\n"
+    "The exact Ubuntu Jammy patch modifies only modules/md/md_ocsp.c.\n"
+    "This file and mod_md_ocsp.c are absent in native Focal mod_md 2.0.10.\n"
+    "Decision: the patched newer OCSP renewal code path is not present; "
+    "do not import the patch or newer architecture.\n\n"
+    "This does NOT assess mod_ssl's distinct OCSP stapling implementation, "
+    "nor does it establish that all certificate handling is secure.\n"
+)
 # Verify the entire expression parser protection is present if imported.
 if "CVE-2026-44119.patch" in current:
     expr_header = (focal / "include/ap_expr.h").read_text()
@@ -1042,6 +1061,9 @@ with (out / "experimental-manifest.md").open("w") as f:
     f.write("\nCVE-2025-55753-3: upstream MDStapleOthers regression fix; "
             "the directive and newer OCSP implementation are absent in "
             "native Focal mod_md (verified by CI). Not imported.\n")
+    f.write("\nCVE-2026-29168: the upstream patch exclusively changes "
+            "modules/md/md_ocsp.c, absent from native Focal mod_md "
+            "(verified by CI). Not imported; mod_ssl OCSP is separate.\n")
     f.write("\nAdditional Focal-only hardening (not counted as a Jammy CVE fix): "
             + md_patch_name + ". CVE-2025-55753 remains excluded.\n")
     f.write("\nNext: review each source diff, add prerequisite patches and complete "
