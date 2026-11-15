@@ -57,6 +57,21 @@ for name in ("CVE-2025-55753.patch", "CVE-2025-55753-3.patch",
         if line.startswith(("+++ b/", "@@ ")):
             lines.append(line)
     lines += ["~~~", ""]
+# Capture the COMPLETE short follow-up patch, plus exact native merge function.
+followup = jammy / "debian/patches/CVE-2025-55753-3.patch"
+lines += ["## Complete CVE-2025-55753-3 follow-up", "", "~~~diff",
+          *followup.read_text(errors="replace").splitlines(), "~~~", ""]
+native_cfg = (focal / "modules/md/mod_md_config.c").read_text().splitlines()
+matches = [i for i, line in enumerate(native_cfg)
+           if "md_config_merge(" in line]
+if not matches:
+    sys.exit("Focal md_config_merge missing")
+for i in matches:
+    lines += ["## Native Focal md_config_merge", "", "~~~c"]
+    lines += [f"{j+1:5}: {native_cfg[j]}" for j in range(max(0, i-8),
+              min(len(native_cfg), i+105))]
+    lines += ["~~~", ""]
+
 lines += [
     "## Decision gates",
     "",
