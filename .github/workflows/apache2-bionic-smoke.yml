@@ -1,0 +1,56 @@
+name: Bionic EXPERIMENTAL smoke-test existing two-CVE packages
+
+on:
+  push:
+    branches: [backport/bionic]
+    paths:
+      - '.github/workflows/apache2-bionic-smoke.yml'
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  smoke-existing-bionic-packages:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Retrieve already built Apache Bionic 2-CVE packages
+        uses: actions/download-artifact@v4
+        with:
+          name: apache2-bionic-2CVE-EXPERIMENTAL
+          run-id: 43711158241
+          github-token: ${{ github.token }}
+          path: output
+      - name: Verify recorded artifact and smoke-test Ubuntu 18.04 Apache
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd output && sha256sum -c SHA256SUMS)
+          docker run --rm --cpus=2 --memory=2g \
+            --mount type=bind,source="$PWD/output",target=/build,readonly \
+            -e DEBIAN_FRONTEND=noninteractive \
+            ubuntu:18.04 bash -euc '
+              apt-get update
+              # wget is intentionally explicit: it is absent in the minimal base image.
+              apt-get install -y --no-install-recommends \
+                /build/apache2-data_*.deb /build/apache2-utils_*.deb \
+                /build/apache2-bin_*.deb /build/apache2_*.deb wget
+              a2dismod mpm_event
+              a2enmod mpm_prefork ssl rewrite proxy proxy_http cgi headers include
+              echo ServerName localhost > /etc/apache2/conf-available/unibo-ci.conf
+              a2enconf unibo-ci
+              apache2ctl -t
+              apache2ctl -M > /tmp/modules.txt
+              for module in mpm_prefork ssl rewrite proxy proxy_http cgi headers include; do
+                grep -q "${module}_module" /tmp/modules.txt
+              done
+              printf "bionic-ci-ok\n" > /var/www/html/unibo-ci-test.txt
+              apache2ctl -k start
+              wget -qO /tmp/test-http.txt http://127.0.0.1/unibo-ci-test.txt
+              grep -qx "bionic-ci-ok" /tmp/test-http.txt
+              dpkg-query -W apache2 apache2-bin apache2-data apache2-utils
+              echo "Bionic experimental smoke test passed"
+            '
