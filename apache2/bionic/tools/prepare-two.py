@@ -34,7 +34,7 @@ for name in candidates:
     if p.returncode != 0 or "offset " in p.stdout or "fuzz " in p.stdout:
         sys.exit("Refusing candidate requiring a port: " + name + "\n" + p.stdout)
     shutil.copy2(reference, patch_dir / name)
-series_path.write_text(series_path.read_text().rstrip("\n") + "\n" + name + "\n")
+    series_path.write_text(series_path.read_text().rstrip("\n") + "\n" + name + "\n")
     # Apply through quilt so dpkg-source state and packaging remain consistent.
     q = subprocess.run(["quilt", "push", "-a"], cwd=src, text=True,
         stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
