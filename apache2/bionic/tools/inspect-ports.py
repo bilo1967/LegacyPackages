@@ -5,7 +5,8 @@ if len(sys.argv)!=4: sys.exit("usage: inspect-ports.py BIONIC_TREE JAMMY_TREE RE
 bionic,jammy,out=[pathlib.Path(x).resolve() for x in sys.argv[1:]]
 out.mkdir(parents=True,exist_ok=True)
 names=["CVE-2026-56154.patch","CVE-2026-63686.patch",
-       "CVE-2026-59797.patch","CVE-2026-46729.patch","CVE-2026-47360.patch"]
+       "CVE-2026-59797.patch","CVE-2026-46729.patch","CVE-2026-47360.patch",
+       "CVE-2026-44119.patch"]
 sections=["# Bionic patch context inspection (source-only)","",
           "Raw vendor patches are retained under `patches/` for review.",
           "All commands use dry-run with fuzz=0; no binary has been built.",""]
@@ -65,3 +66,21 @@ for idx in positions:
     focus.extend(str(k+1)+": "+rewrite[k] for k in range(lo,hi))
     focus.extend(["```",""])
 (out/"rewrite-lookahead-source.md").write_text("\n".join(focus)+"\n",encoding="utf-8")
+
+# Determine how Jammy defines the file-function restriction and whether
+# Bionic expression API contains equivalent enforcement.
+expr=[] 
+for root in ["include","server","modules/ssl"]:
+    for p in (bionic/root).rglob("*.[ch]"):
+        lines=p.read_text(encoding="utf-8",errors="replace").splitlines()
+        hits=[i for i,line in enumerate(lines) if
+              "AP_EXPR_FLAG" in line or "ap_expr_lookup" in line or "file_func" in line]
+        if not hits: continue
+        # Include only files directly involved in flag definitions/lookup.
+        if not ("ap_expr" in p.name or "util_expr" in p.name): continue
+        expr.extend(["## "+str(p.relative_to(bionic)),""])
+        for ix in hits[:45]:
+            lo=max(0,ix-2);hi=min(len(lines),ix+3)
+            expr.extend(str(k+1)+": "+lines[k] for k in range(lo,hi))
+            expr.append("")
+(out/"bionic-expression-api.txt").write_text("\n".join(expr)+"\n",encoding="utf-8")
