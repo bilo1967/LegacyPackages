@@ -1,6 +1,6 @@
 # EXPERIMENTAL Apache Focal partial patch import
 
-Not for production use. No security completeness claim. Jammy source patches are not equivalent to verified Focal ESM.
+Not approved for production. No ESM security equivalence claim. Jammy source patches are not equivalent to verified Focal ESM.
 
 Version: \`2.4.41-4ubuntu3.23+unibo0~experiment1\`. Applied: 63; skipped: 4.
 
@@ -80,4 +80,4 @@ CVE-2026-29168: the upstream patch exclusively changes modules/md/md_ocsp.c, abs
 
 Additional Focal-only hardening (not counted as a Jammy CVE fix): unibo-focal-mod-md-bounded-backoff.patch. CVE-2025-55753 remains excluded.
 
-Next: review each source diff, add prerequisite patches and complete missing CVEs, then run regression and ABI tests.
+Native Focal ACME retry-overflow mitigation for CVE-2025-55753 is documented in analysis/cve-2025-55753-focal.md. Package remains a candidate pending release review.
