@@ -1063,7 +1063,7 @@ intro = (f"apache2 ({version}) focal; urgency=low\n\n"
 changelog.write_text(intro + old)
 
 with (out / "experimental-manifest.md").open("w") as f:
-    f.write(f"# {channel} Apache Focal partial patch import\\n\\n".replace("\\n", "\n"))
+    f.write(f"# {channel} Apache Focal partial patch import\n\n")
     f.write("Not approved for production. No ESM security equivalence claim. "
             "Jammy source patches are not equivalent to verified Focal ESM.\n\n")
     f.write(f"Version: \`{version}\`. Applied: {len(accepted)}; skipped: {len(skipped)}.\n\n")

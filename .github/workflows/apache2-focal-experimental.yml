@@ -88,7 +88,7 @@ jobs:
               dpkg-buildpackage -b -us -uc -j2
               cp /tmp/focal/*.deb /repo/output/
               cp /tmp/report/experimental-manifest.md /repo/output/
-              sha256sum /repo/output/*.deb > /repo/output/SHA256SUMS
+              (cd /repo/output && sha256sum ./*.deb > SHA256SUMS)
             '
       - name: Smoke-test experimental packages in disposable Focal container
         shell: bash
