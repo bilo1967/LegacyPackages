@@ -16,7 +16,7 @@ The [original production inventory](gojira-inventory.md) includes MPM prefork, `
 - Patch import: **63 applied and 4 excluded** in the [latest CI manifest](analysis/experimental-manifest.md). This counts *Jammy patch files*, **not CVEs**; Focal-specific patches are separate.
 - Accepted patches were applied in upstream sequence with `patch --fuzz=0`. Where contexts differed, `tools/prepare-experimental.py` constructs explicit reviewed rebase patches; do not assume `patch --dry-run` alone proves a security fix.
 - Additional Focal-only quilt changes: SNI policy structure-member fix, SSL command declaration, and `unibo-focal-mod-md-bounded-backoff.patch` (CVE applicability still under review).
-- GitHub Actions experimental package workflow **#81, #82, #83 passed**; #84 adds an actual C/UBSan regression for the backoff expression and **was running at last edit**. Check the current run before changing this status.
+- GitHub Actions experimental package workflows **#81 through #84 passed**. #84 includes an actual C/UBSan boundary test for the native `mod_md` backoff expression.
 - Output artifacts: `apache2-focal-EXPERIMENTAL` from the experimental workflow (seven-day artifact retention), containing rebuilt `.deb`, SHA256 checksums, patch manifest, audits and test logs. They are **not release artifacts**.
 - Production release: **none**. Do not remove experimental labels or deploy solely because CI is green.
 
@@ -66,7 +66,7 @@ The experimental workflow has already exercised:
 - Released PHP **8.3 and 8.4** Apache DSOs under prefork; PHP **8.3 and 8.4 FPM** via `proxy_fcgi` under event MPM. Released external packages are obtained by `tools/fetch-legacy-php.py`.
 - TLS/`mod_ssl`, rewrite, `mod_fcgid`, WebSocket proxy, `mod_proxy_hcheck`, `mod_auth_digest`, and a non-core `apxs` module compatibility smoke test.
 - Native Focal `mod_md` loads in the **built experimental packages**, without live ACME network calls. A separate attempt to transplant *full Jammy mod_md* was rejected due to missing Focal SSL hooks; **do not substitute that diagnostic module**.
-- Native `mod_md` exponential backoff now caps delay at 3600 seconds *before an undefined shift*; test in `tools/test-mod-md-backoff.py` covers 9 boundary counts (including `INT_MAX`) with UBSan. **Check #84** for its actual result.
+- Native `mod_md` exponential backoff now caps delay at 3600 seconds *before an undefined shift*; test in `tools/test-mod-md-backoff.py` covers 9 boundary counts (including `INT_MAX`) with UBSan. **#84 passed**.
 
 Limitations: no full ACME certificate issuance/renewal or OCSP end-to-end validation; no proof of complete ESM equivalence; no production vhost replay. `mod_maxminddb` was inventoried but its exact deployed manually built binary has not been reproduced by CI. Some diagnostic probes are *informational only* and intentionally do not fail the whole build; read their artifacts and do not mistake green status for blanket success.
 
@@ -101,7 +101,7 @@ For complete run history, use the [branch Actions listing](https://github.com/bi
 
 ## 7. Remaining work and release gates
 
-1. Check the **#84** UBSan step result. If it fails, fix only the reported test/code defect; avoid another general-purpose audit.
+1. The **#84** UBSan boundary test and existing build/runtime matrix passed; do not rerun them without a new code change or concrete regression.
 2. Decide whether the native `mod_md` backoff adjustment covers the **actual vulnerable Focal path** for `CVE-2025-55753` (not the entire unrelated Jammy 2.6 codebase). Keep excluded status if unresolved. The newer `MDStapleOthers` regression and `md_ocsp.c`-only patch are separately documented as not applicable to Focal's code structure.
 3. Review final Ubuntu ESM advisories and any relevant security gaps not represented by the Jammy patch list; **63 imported files do not equal complete ESM coverage**. If exact Canonical ESM sources are available with authorization, compare source changes instead of making equivalence assumptions.
 4. Only after security review, choose candidate Debian package version and changelog, verify dependency metadata/`dpkg` conffile behavior, preserve existing modules/MPM and prepare test-VM install + rollback. Use existing CI suite once; add a targeted test only when an uncovered functional risk is concrete.

@@ -9,7 +9,7 @@ Controlled security backports for older Ubuntu/Debian packages. Work is isolated
 | 20.04 Focal | `apache2 2.4.41-4ubuntu3.23` | Active experimental backport on branch `backport/focal`. **Not released or production-approved**. |
 | 18.04 Bionic | `apache2 2.4.29` (exact host revision unverified) | No implementation or build in this repository; decision documented below. |
 
-**Focal:** the Jammy `2.4.52-1ubuntu4.27` patch inventory currently produces **63 imported candidates, 4 excluded**. There are also independent Focal-only compatibility changes and a native `mod_md` backoff fix. The experimental Debian package version is `2.4.41-4ubuntu3.23+unibo0~experiment1`. CI package builds and HTTP/PHP/MPM/module smoke tests passed through run **#83**. Run **#84** adds a UBSan boundary test for `mod_md` and was **still running when this README was updated**. Check its current result; do not assume success.
+**Focal:** the Jammy `2.4.52-1ubuntu4.27` patch inventory currently produces **63 imported candidates, 4 excluded**. There are also independent Focal-only compatibility changes and a native `mod_md` backoff fix. The experimental Debian package version is `2.4.41-4ubuntu3.23+unibo0~experiment1`. CI package builds and HTTP/PHP/MPM/module smoke tests passed through run **#84**. Run **#84** also passed the UBSan boundary test for the native `mod_md` backoff fix.
 
 A green workflow means its defined tests passed, **not** that all applicable ESM vulnerabilities have been independently proven fixed. No packages from these workflows should be installed in production yet.
 
