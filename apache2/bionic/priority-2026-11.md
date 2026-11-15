@@ -51,3 +51,20 @@ Prioritize known relevant **code paths** and remote impact; a patch is admitted 
 - [Focal backport technical record](https://github.com/bilo1967/LegacyPackages/blob/backport/focal/apache2/focal/README.md).
 
 **Safety:** installed Apache version and loaded modules are known; **CVE path-level exposure remains to be established against source**. The fact that an old bug has not visibly been exploited is no evidence that it is safe; the interim shortlist leaves a known residual security gap by design.
+
+## Interim implementation checkpoint — 15 Nov 2026
+
+- [Dry-run source applicability report](analysis/selected-patch-audit.md):
+  **2 clean**, **3 accepted with offsets** needing manual inspection,
+  **3 failing** and needing source adaptation.
+- [Successful source compilation](https://github.com/bilo1967/LegacyPackages/actions/runs/43711158241)
+  with **only CVE-2026-63292 and CVE-2026-56153**. The job built the DEBs;
+  an initial CI smoke-test omitted the `wget` dependency.
+- [Separate successful smoke test](https://github.com/bilo1967/LegacyPackages/actions/runs/43711428472)
+  reused the same package files to test install, MPM prefork and HTTP.
+- **Remaining priority:** inspect offsets for `CVE-2026-59797`,
+  `CVE-2026-46729`, `CVE-2026-47360`; port `CVE-2026-56154`
+  and `CVE-2026-63686`. Review the conditional `CVE-2026-7363X`
+  path against Bionic auth code and mrscoulter's active auth modules.
+  Verify binary compatibility with Niek's installed mod_php 7.4.33
+  before considering any host installation.

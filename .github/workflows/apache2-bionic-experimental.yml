@@ -2,11 +2,6 @@ name: Bionic EXPERIMENTAL two-CVE compatibility build
 
 on:
   workflow_dispatch:
-  push:
-    branches: [backport/bionic]
-    paths:
-      - '.github/workflows/apache2-bionic-experimental.yml'
-      - 'apache2/bionic/tools/prepare-two.py'
 
 permissions:
   contents: write
@@ -80,7 +75,7 @@ jobs:
               apt-get update
               apt-get install -y --no-install-recommends \
                 /build/apache2-data_*.deb /build/apache2-utils_*.deb \
-                /build/apache2-bin_*.deb /build/apache2_*.deb
+                /build/apache2-bin_*.deb /build/apache2_*.deb wget
               a2dismod mpm_event || true
               a2enmod mpm_prefork ssl rewrite proxy proxy_http cgi headers include
               echo ServerName localhost > /etc/apache2/conf-available/unibo-ci.conf
@@ -90,8 +85,10 @@ jobs:
               for module in mpm_prefork ssl rewrite proxy proxy_http cgi headers include; do
                 grep -q "${module}_module" /tmp/modules.txt
               done
+              printf "bionic-ci-ok\\n" > /var/www/html/unibo-ci-test.txt
               apache2ctl -k start
-              wget -qO - http://127.0.0.1/ | grep -q "It works"
+              wget -qO /tmp/test-http.txt http://127.0.0.1/unibo-ci-test.txt
+              grep -qx "bionic-ci-ok" /tmp/test-http.txt
               dpkg-query -W apache2 apache2-bin apache2-data apache2-utils
             '
       - name: Upload experimental Bionic packages and patch manifest
