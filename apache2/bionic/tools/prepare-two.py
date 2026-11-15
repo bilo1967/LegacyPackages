@@ -49,7 +49,7 @@ entry = ("apache2 ("+version+") bionic; urgency=medium\n\n"
          "  * Import CVE-2026-63292 and CVE-2026-56153 from Jammy source.\n\n"
          " -- LegacyPackages CI <noreply@github.com>  "+date+"\n\n")
 changelog = src / "debian/changelog"
-changelog.write_text(entry + changelog.read_text())
+changelog.write_text(entry + changelog.read_text(encoding="utf-8"), encoding="utf-8")
 (out / "EXPERIMENTAL-MANIFEST.md").write_text(
     "# Bionic experimental Apache package\n\n"
     "Source: Ubuntu 18.04 apache2 2.4.29-1ubuntu4.27.\n\n"
