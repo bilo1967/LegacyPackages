@@ -53,3 +53,15 @@ for name in names:
         if not anchors: sections+=["No unambiguous hunk context anchor found; inspect the raw patch.",""]
 (out/"port-context.md").write_text("\n".join(sections)+"\n",encoding="utf-8")
 print("Inspection written to",out,"files",len(names))
+
+# Focused view of BOTH rewrite subrequest lookahead branches in Bionic.
+rewrite=(bionic/"modules/mappers/mod_rewrite.c").read_text(encoding="utf-8",errors="replace").splitlines()
+positions=[i for i,line in enumerate(rewrite) if "ap_destroy_sub_req(rr);" in line]
+focus=["# Bionic rewrite lookahead subrequest lifetime review","",
+       "Positions containing ap_destroy_sub_req(rr): "+str([p+1 for p in positions]),""]
+for idx in positions:
+    lo=max(0,idx-24);hi=min(len(rewrite),idx+15)
+    focus.extend(["## Bionic lines "+str(lo+1)+"-"+str(hi),"","```c"])
+    focus.extend(str(k+1)+": "+rewrite[k] for k in range(lo,hi))
+    focus.extend(["```",""])
+(out/"rewrite-lookahead-source.md").write_text("\n".join(focus)+"\n",encoding="utf-8")
