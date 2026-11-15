@@ -81,3 +81,32 @@ For deployment preserve `/etc/apache2`, installed package versions and the
 original Ubuntu `.deb` packages. Inspect `apt -s install ./*.deb` before
 proceeding. The dpkg maintainer scripts may restart Apache automatically;
 arrange a maintenance window and check the vhosts after installation.
+
+### RC1 build completed and upgrade-tested — 15 November 2026
+
+[**Successful RC1 workflow #2**](https://github.com/bilo1967/LegacyPackages/actions/runs/43716982446),
+artifact `apache2-bionic-RC1` (retained for 30 days). This action produced
+version `2.4.29-1ubuntu4.27+unibo1~rc1` and passed all steps.
+
+The artifact contains the five `.deb` files, `SHA256SUMS`,
+`PATCH-MANIFEST.md`, `RELEASE-NOTES.md` and
+`apache2-bionic-rc1-packages.tar.gz`, which retains exact Debian package
+filenames. PHP packages are not included.
+
+A fresh Ubuntu 18.04 container was prepared with *original Ubuntu Apache
+2.4.29-1ubuntu4.27*, `apache2-dev`, and Niek's unmodified
+`libapache2-mod-php7.4` 7.4.33 (with its original local dependencies).
+**The APT simulation proposed upgrading only the five Apache packages.**
+After installing the RC, a comparison of PHP package versions before/after
+showed no changes. The server passed `apache2ctl configtest`, loaded the
+prefork MPM, SSL, rewrite and PHP modules, and served a PHP 7.4.33 page
+through `apache2handler`.
+
+**Deployment checklist for mrscoulter**: preserve the current `/etc/apache2`
+tree and original `2.4.29-1ubuntu4.27` DEBs; extract the RC archive in an
+otherwise empty directory; run `sha256sum -c SHA256SUMS`, then
+`apt -s install ./*.deb` and review the exact package transaction.
+Proceed only if the simulated upgrade touches those five Apache packages
+and no PHP packages. Be aware that package maintainer scripts may restart
+Apache automatically. After installation, check `apache2ctl configtest`,
+`systemctl status apache2`, loaded modules and critical vhosts.
