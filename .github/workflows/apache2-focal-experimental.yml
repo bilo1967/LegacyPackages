@@ -7,6 +7,7 @@ on:
     paths:
       - '.github/workflows/apache2-focal-experimental.yml'
       - 'apache2/focal/tools/prepare-experimental.py'
+      - 'apache2/focal/tools/test-mod-md-backoff.py'
       - 'apache2/focal/tools/test-http-headers.py'
       - 'apache2/focal/tools/test-mod-php.py'
       - 'apache2/focal/tools/fetch-legacy-php.py'
@@ -51,6 +52,8 @@ jobs:
               rm /etc/apt/sources.list.d/jammy-source.list
               python3 /repo/apache2/focal/tools/prepare-experimental.py \
                 /tmp/focal/apache2-2.4.41 /tmp/jammy/apache2-2.4.52 /tmp/report
+              python3 /repo/apache2/focal/tools/test-mod-md-backoff.py \
+                /tmp/focal/apache2-2.4.41
               python3 /repo/apache2/focal/tools/audit-mod-md.py \
                 /tmp/focal/apache2-2.4.41 /tmp/jammy/apache2-2.4.52 \
                 /repo/output/mod-md-architecture-audit.md
