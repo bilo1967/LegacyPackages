@@ -1,9 +1,11 @@
-# Apache 2.4 backport for Ubuntu 18.04 Bionic
+# Apache 2.4 Bionic — narrow security backport
 
-Status: **not started; NOT RELEASE READY**.
+**Phase:** source and exposure triage only; **no** Bionic patched binaries available yet.
 
-Baseline version, installed modules, PHP integration, and CVE applicability must be verified from the Bionic host before patch selection.
+Target: `mrscoulter` (Ubuntu 18.04 / Apache 2.4.29). Exact installed Ubuntu revision and module inventory must be confirmed before modifying code. This branch is intentionally independent of the completed Focal RC.
 
-Approach: preserve Bionic's original Ubuntu/Debian packaging and carry traceable security patches, using a release-matched isolated build environment.
+The project prioritizes the high-impact CVEs disclosed on **7 October, 14 October, 10 November and 12 November 2026**, rather than importing the entire 63-patch Focal/Jammy candidate inventory.
 
-The Focal backport should be reviewed and tested before work begins here. Never copy Focal/Jammy binaries onto Bionic.
+Read the [focused CVE shortlist and time-limited build strategy](priority-2026-11.md). Only patches affecting the real Bionic source and relevant server features should proceed into an interim package. The final Canonical ESM reference is `apache2 2.4.29-1ubuntu4.27+esm15` (USN-9090-1).
+
+**Constraints:** preserve Bionic's binary module ABI and existing Apache/PHP integrations; never transplant Focal or Jammy binaries. Use a disposable Bionic build container; minimal CI runs; verify installed modules before choosing optional CVEs. A partial backport is not equivalent to Ubuntu Pro/ESM.
