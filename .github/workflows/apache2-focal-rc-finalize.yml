@@ -1,10 +1,6 @@
 name: Apache Focal - populate RC1 release
 
 on:
-  push:
-    branches: [backport/focal]
-    paths:
-      - '.github/workflows/apache2-focal-rc-finalize.yml'
   workflow_dispatch:
 
 permissions:
@@ -119,10 +115,7 @@ jobs:
               "https://uploads.github.com/repos/$GITHUB_REPOSITORY/releases/$id/assets?name=$asset" > /tmp/asset.json
             python3 -c 'import json; x=json.load(open("/tmp/asset.json")); assert x["state"]=="uploaded"'
           done
-          python3 - <<'PY'
-          import json
-          from pathlib import Path
-          Path('/tmp/body.json').write_text(json.dumps({'body':Path('release-assets/RELEASE-NOTES.md').read_text()}))
-          PY
-          gh api -X PATCH "repos/$GITHUB_REPOSITORY/releases/$id" --input /tmp/body.json --jq '{draft,prerelease,name,assets:(.assets|length)}'
-          echo "RC1 release updated; publication state left unchanged." >> "$GITHUB_STEP_SUMMARY"
+          echo "Release assets are attached. The GitHub Actions token cannot edit"
+          echo "release notes when the target branch changes workflow files."
+          echo "Copy apache2/focal/RELEASE-RC1.md into GitHub's release editor."
+          echo "Assets checked; release publication state unchanged." >> "$GITHUB_STEP_SUMMARY"
