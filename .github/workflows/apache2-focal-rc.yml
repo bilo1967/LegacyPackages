@@ -2,12 +2,19 @@ name: Apache Focal - RC1 draft release packages
 
 on:
   workflow_dispatch:
+    inputs:
+      reuse_run_id:
+        description: 'Optional: reuse tested RC package artifact from run ID (no rebuild)'
+        required: false
+        type: string
+        default: '43698324239'
 
 permissions:
   contents: write
 
 jobs:
   build-and-test:
+    if: ${{ inputs.reuse_run_id == '' }}
     uses: ./.github/workflows/apache2-focal-experimental.yml
     with:
       package_version: '2.4.41-4ubuntu3.23+unibo1~rc1'
@@ -17,6 +24,7 @@ jobs:
 
   attach-to-draft:
     needs: build-and-test
+    if: ${{ always() && (needs.build-and-test.result == 'success' || (inputs.reuse_run_id != '' && needs.build-and-test.result == 'skipped')) }}
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -24,27 +32,54 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       RELEASE_TAG: apache2-2.4.41-focal-rc1
       EXPECTED_VERSION: '2.4.41-4ubuntu3.23+unibo1~rc1'
+      REUSE_RUN_ID: ${{ inputs.reuse_run_id }}
     steps:
       - uses: actions/checkout@v4
+      - name: Verify prior run built and tested RC packages
+        if: ${{ inputs.reuse_run_id != '' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$REUSE_RUN_ID" > /tmp/previous-run.json
+          gh api --paginate "repos/$GITHUB_REPOSITORY/actions/runs/$REUSE_RUN_ID/jobs?per_page=100" > /tmp/previous-jobs.json
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          run = json.loads(Path('/tmp/previous-run.json').read_text())
+          jobs = json.loads(Path('/tmp/previous-jobs.json').read_text())
+          assert run['head_branch'] == 'backport/focal', 'Previous run was on another branch'
+          assert run['name'] == 'Apache Focal - RC1 draft release packages', 'Not an RC run'
+          tested = [j for j in jobs.get('jobs', []) if j['name'] == 'build-and-test / experimental']
+          assert len(tested) == 1 and tested[0]['conclusion'] == 'success', 'Build/test job did not pass'
+          with open(os.environ['GITHUB_ENV'], 'a') as out:
+              out.write('TESTED_SHA=' + run['head_sha'] + '\n')
+          print('Reusing tested run',run['id'],'at',run['head_sha'])
+          PY
       - name: Download tested packages
         uses: actions/download-artifact@v4
         with:
           name: apache2-focal-RC1
           path: output
+          run-id: ${{ inputs.reuse_run_id || github.run_id }}
+          github-token: ${{ github.token }}
       - name: Validate draft, packages, version and checksums
         shell: bash
         run: |
           set -euo pipefail
           test "$GITHUB_REF" = "refs/heads/backport/focal"
-          gh api "repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG" > /tmp/focal-release.json
+          gh api --paginate "repos/$GITHUB_REPOSITORY/releases?per_page=100" > /tmp/focal-releases.json
           python3 - <<'PY'
           import json
           from pathlib import Path
-          release = json.loads(Path("/tmp/focal-release.json").read_text())
+          releases = json.loads(Path("/tmp/focal-releases.json").read_text())
+          matches = [r for r in releases if r["tag_name"] == "apache2-2.4.41-focal-rc1"]
+          assert len(matches) == 1, "Expected exactly one matching release draft"
+          release = matches[0]
           assert release["draft"] and release["prerelease"], "RC release must remain an unpublished pre-release"
           assert release["tag_name"] == "apache2-2.4.41-focal-rc1"
-          assert release["target_commitish"] == "backport/focal"
           assert not release["assets"], "RC draft already contains assets: refusing to overwrite"
+          with open("/tmp/focal-release-id", "w") as output:
+              output.write(str(release["id"]))
           PY
           test -f output/SHA256SUMS
           test -f output/experimental-manifest.md
@@ -81,25 +116,36 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          tested_sha="${TESTED_SHA:-$GITHUB_SHA}"
           git fetch --tags --force origin
           existing=$(git rev-parse -q --verify "refs/tags/$RELEASE_TAG^{}" || true)
           if [ -n "$existing" ]; then
-            test "$existing" = "$GITHUB_SHA" || {
+            test "$existing" = "$tested_sha" || {
               echo "Tag already exists but points to a different source commit"
               exit 1
             }
           else
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git tag -a "$RELEASE_TAG" -m "Apache Focal RC1 tested source" "$GITHUB_SHA"
+            git tag -a "$RELEASE_TAG" -m "Apache Focal RC1 tested source" "$tested_sha"
             git push origin "refs/tags/$RELEASE_TAG"
           fi
       - name: Upload tested RC packages to draft (do not publish)
         shell: bash
         run: |
           set -euo pipefail
-          gh release upload "$RELEASE_TAG" \
-            output/*.deb output/SHA256SUMS \
-            output/PATCH-MANIFEST.md output/RELEASE-NOTES.md \
-            --repo "$GITHUB_REPOSITORY"
+          release_id=$(cat /tmp/focal-release-id)
+          for file in output/*.deb output/SHA256SUMS output/PATCH-MANIFEST.md output/RELEASE-NOTES.md; do
+            test -f "$file"
+            asset_name=$(basename "$file")
+            curl --fail --silent --show-error --retry 3 \
+              -X POST \
+              -H "Authorization: Bearer $GH_TOKEN" \
+              -H "Accept: application/vnd.github+json" \
+              -H "Content-Type: application/octet-stream" \
+              --data-binary @"$file" \
+              "https://uploads.github.com/repos/$GITHUB_REPOSITORY/releases/$release_id/assets?name=$asset_name" \
+              > /dev/null
+          done
+          gh api "repos/$GITHUB_REPOSITORY/releases/$release_id" --jq '{draft,prerelease,assets:[.assets[].name]}'
           echo "Assets attached to draft $RELEASE_TAG; release remains unpublished" >> "$GITHUB_STEP_SUMMARY"
