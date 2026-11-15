@@ -1,0 +1,103 @@
+name: Bionic RC1 - attach verified assets to existing release
+
+on:
+  push:
+    branches: [backport/bionic]
+    paths: ['.github/workflows/apache2-bionic-rc-release.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  attach:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RC_TAG: apache2-2.4.29-bionic-rc1
+      RC_VERSION: '2.4.29-1ubuntu4.27+bilo1~rc1'
+      RC_SOURCE_RUN: '43718996495'
+      RC_SOURCE_COMMIT: 1cc1f4c2bfc05b2576801cd4bb0e3210a11be56f
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate original successful Bionic RC1 run
+        run: |
+          set -euo pipefail
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RC_SOURCE_RUN" > /tmp/run.json
+          python3 - <<'PY'
+          import json,os
+          r=json.load(open('/tmp/run.json'))
+          assert r['head_sha']==os.environ['RC_SOURCE_COMMIT']
+          assert r['head_branch']=='backport/bionic'
+          assert r['status']=='completed' and r['conclusion']=='success'
+          PY
+      - name: Download previously tested RC1 artifact without rebuilding
+        uses: actions/download-artifact@v4
+        with:
+          run-id: 43718996495
+          name: apache2-bionic-RC1
+          github-token: ${{ github.token }}
+          path: rc
+      - name: Validate five DEBs, versions and archive
+        run: |
+          set -euo pipefail
+          (cd rc && sha256sum -c SHA256SUMS)
+          python3 - <<'PY'
+          import glob,os,subprocess,tarfile
+          files=glob.glob('rc/*.deb')
+          expected={'apache2','apache2-bin','apache2-data','apache2-utils','apache2-dev'}
+          assert len(files)==5,files
+          actual=set()
+          for path in files:
+              pkg=subprocess.check_output(['dpkg-deb','-f',path,'Package'],text=True).strip()
+              ver=subprocess.check_output(['dpkg-deb','-f',path,'Version'],text=True).strip()
+              assert ver==os.environ['RC_VERSION'],(pkg,ver)
+              actual.add(pkg)
+          assert actual==expected,actual
+          with tarfile.open('rc/apache2-bionic-rc1-packages.tar.gz','r:gz') as archive:
+              members={m.name.removeprefix('./') for m in archive.getmembers() if m.isfile()}
+          assert members==({os.path.basename(x) for x in files}|{'SHA256SUMS'}),members
+          PY
+          test -s rc/PATCH-MANIFEST.md
+          cp apache2/bionic/RC1-README.md rc/README.md
+          cp apache2/bionic/RELEASE-RC1.md rc/RELEASE-NOTES.md
+      - name: Locate existing prerelease including draft state
+        run: |
+          set -euo pipefail
+          gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" > /tmp/releases.json
+          python3 - <<'PY'
+          import json,os,pathlib
+          matched=[r for r in json.load(open('/tmp/releases.json')) if r['tag_name']==os.environ['RC_TAG']]
+          assert len(matched)==1,'Expected one existing Bionic RC1 release'
+          r=matched[0]
+          assert r['prerelease'],'Refusing stable release'
+          pathlib.Path('/tmp/release_id').write_text(str(r['id']))
+          print('Existing release',r['id'],'draft:',r['draft'],'target:',r['target_commitish'])
+          if r['target_commitish'] not in ('backport/bionic',os.environ['RC_SOURCE_COMMIT']):
+              print('WARNING: target is not Bionic; correct in GitHub before publishing')
+          PY
+      - name: Attach missing assets without editing release metadata or tag
+        run: |
+          set -euo pipefail
+          id=$(cat /tmp/release_id)
+          gh api "repos/$GITHUB_REPOSITORY/releases/$id" > /tmp/current.json
+          for file in rc/*.deb rc/apache2-bionic-rc1-packages.tar.gz rc/SHA256SUMS rc/PATCH-MANIFEST.md rc/RELEASE-NOTES.md rc/README.md; do
+            asset=$(basename "$file")
+            normalized=${asset//+/.}
+            normalized=${normalized//~/.}
+            if python3 -c 'import json,sys; r=json.load(open("/tmp/current.json")); sys.exit(0 if any(a["name"]==sys.argv[1] for a in r["assets"]) else 1)' "$normalized"; then
+              echo "Existing: $normalized"
+              continue
+            fi
+            curl --fail-with-body --silent --show-error --retry 2 \
+              -X POST -H "Authorization: Bearer $GH_TOKEN" \
+              -H "Accept: application/vnd.github+json" \
+              -H "Content-Type: application/octet-stream" \
+              --data-binary @"$file" \
+              "https://uploads.github.com/repos/$GITHUB_REPOSITORY/releases/$id/assets?name=$asset" > /tmp/upload.json
+            python3 -c 'import json; a=json.load(open("/tmp/upload.json")); assert a["state"]=="uploaded",a'
+            echo "Uploaded: $asset"
+          done
+          gh api "repos/$GITHUB_REPOSITORY/releases/$id" --jq '{name,tag_name,draft,prerelease,target_commitish,assets:(.assets|map(.name))}'
