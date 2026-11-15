@@ -1,0 +1,127 @@
+name: Apache Focal - populate RC1 release
+
+on:
+  push:
+    branches: [backport/focal]
+    paths:
+      - '.github/workflows/apache2-focal-rc-finalize.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  attach-existing-rc:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_TAG: apache2-2.4.41-focal-rc1
+      RC_VERSION: '2.4.41-4ubuntu3.23+unibo1~rc1'
+      BUILD_RUN: '43698324239'
+      BUILT_SHA: bc2fdf6d7e621789ee6e5a58ca86e7d0f89c9968
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify prior release candidate build and tests passed
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$BUILD_RUN" > /tmp/run.json
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$BUILD_RUN/jobs?per_page=100" > /tmp/jobs.json
+          python3 - <<'PY'
+          import json,os
+          run=json.load(open('/tmp/run.json'))
+          jobs=json.load(open('/tmp/jobs.json'))
+          assert run['head_sha']==os.environ['BUILT_SHA']
+          assert run['head_branch']=='backport/focal'
+          ok=[j for j in jobs['jobs'] if j['name']=='build-and-test / experimental']
+          assert len(ok)==1 and ok[0]['conclusion']=='success'
+          print('RC packages built and tested in run',run['id'])
+          PY
+      - name: Download existing RC packages, without recompiling
+        uses: actions/download-artifact@v4
+        with:
+          name: apache2-focal-RC1
+          run-id: 43698324239
+          github-token: ${{ github.token }}
+          path: output
+      - name: Validate exactly five Apache binaries and their checksum
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd output && sha256sum -c SHA256SUMS)
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          ps=list(Path('output').glob('*.deb'))
+          assert len(ps)==5, [str(p) for p in ps]
+          assert {p.name.split('_')[0] for p in ps} == {'apache2','apache2-bin','apache2-data','apache2-utils','apache2-dev'}
+          assert all(os.environ['RC_VERSION'] in p.name for p in ps)
+          m=Path('output/experimental-manifest.md').read_text()
+          assert 'RELEASE CANDIDATE' in m and 'Applied: 63; skipped: 4.' in m
+          print('All five Apache RC packages and patch manifest verified')
+          PY
+          cp output/experimental-manifest.md output/PATCH-MANIFEST.md
+          cp apache2/focal/RELEASE-RC1.md output/RELEASE-NOTES.md
+      - name: Identify existing release, including drafts
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" > /tmp/releases.json
+          python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          matches=[r for r in json.load(open('/tmp/releases.json')) if r['tag_name']==os.environ['RELEASE_TAG']]
+          assert len(matches)==1, 'Release not found, or multiple releases share tag'
+          release=matches[0]
+          assert release['prerelease'], 'Refusing to edit a stable release'
+          Path('/tmp/release-id').write_text(str(release['id']))
+          print('Found RC release',release['id'],'draft:',release['draft'])
+          PY
+      - name: Pin tag to original tested source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --tags origin
+          current=$(git rev-parse -q --verify "refs/tags/$RELEASE_TAG^{}" || true)
+          if [ -n "$current" ]; then
+            test "$current" = "$BUILT_SHA" || {
+              echo "::error::Existing release tag targets a different commit. No rewrite attempted."
+              exit 1
+            }
+          else
+            git fetch origin "$BUILT_SHA"
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git tag -a "$RELEASE_TAG" -m "Apache Focal RC1 tested source" "$BUILT_SHA"
+            git push origin "refs/tags/$RELEASE_TAG"
+          fi
+      - name: Attach missing packages, metadata and release notes
+        shell: bash
+        run: |
+          set -euo pipefail
+          id=$(cat /tmp/release-id)
+          gh api "repos/$GITHUB_REPOSITORY/releases/$id" > /tmp/current.json
+          for file in output/*.deb output/SHA256SUMS output/PATCH-MANIFEST.md output/RELEASE-NOTES.md; do
+            asset=$(basename "$file")
+            if python3 -c 'import json,sys; exit(0 if any(a["name"]==sys.argv[1] for a in json.load(open("/tmp/current.json"))["assets"]) else 1)' "$asset"; then
+              echo "Already attached: $asset"
+              continue
+            fi
+            echo "Uploading $asset"
+            curl --silent --show-error --fail-with-body --retry 2 \
+              -X POST \
+              -H "Authorization: Bearer $GH_TOKEN" \
+              -H "Accept: application/vnd.github+json" \
+              -H "Content-Type: application/octet-stream" \
+              --data-binary @"$file" \
+              "https://uploads.github.com/repos/$GITHUB_REPOSITORY/releases/$id/assets?name=$asset" > /tmp/asset.json
+            python3 -c 'import json; x=json.load(open("/tmp/asset.json")); assert x["state"]=="uploaded"'
+          done
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          Path('/tmp/body.json').write_text(json.dumps({'body':Path('output/RELEASE-NOTES.md').read_text()}))
+          PY
+          gh api -X PATCH "repos/$GITHUB_REPOSITORY/releases/$id" --input /tmp/body.json --jq '{draft,prerelease,name,assets:(.assets|length)}'
+          echo "RC1 release updated; publication state left unchanged." >> "$GITHUB_STEP_SUMMARY"
