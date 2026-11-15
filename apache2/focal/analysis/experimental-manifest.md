@@ -74,6 +74,8 @@ Version: \`2.4.41-4ubuntu3.23+unibo0~experiment1\`. Applied: 63; skipped: 4.
 | \`unibo-focal-sni-policy-hash-member.patch\` | applied | Focal-only SSLSrvConfigRec SNI policy hash member |
 | \`unibo-focal-sni-command-declaration.patch\` | applied | Focal-only prototype for SNI directive; regression-1/2 required |
 
+CVE-2025-55753-3: upstream MDStapleOthers regression fix; the directive and newer OCSP implementation are absent in native Focal mod_md (verified by CI). Not imported.
+
 Additional Focal-only hardening (not counted as a Jammy CVE fix): unibo-focal-mod-md-bounded-backoff.patch. CVE-2025-55753 remains excluded.
 
 Next: review each source diff, add prerequisite patches and complete missing CVEs, then run regression and ABI tests.
