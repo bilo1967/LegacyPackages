@@ -1642,234 +1642,324 @@ Total matching source lines: 144
 
 --- truncated source audit ---
 
-@@ -143,6 +163,11 @@ void md_http_set_ca_file(md_http_t *http
-@@ -177,7 +202,6 @@ static apr_status_t req_set_body_data(md
-@@ -211,17 +235,20 @@ static apr_status_t req_create(md_http_r
-@@ -308,10 +335,16 @@ apr_status_t md_http_POSTd_create(md_htt
-+++ b/modules/md/md_http.h
-@@ -65,6 +65,7 @@ struct md_http_request_t {
-@@ -87,6 +88,13 @@ apr_status_t md_http_create(md_http_t **
-@@ -118,6 +126,12 @@ void md_http_set_stalling(md_http_reques
-+++ b/modules/md/md_json.c
-@@ -176,7 +176,7 @@ static apr_status_t jselect_add(json_t *
-@@ -202,7 +202,7 @@ static apr_status_t jselect_insert(json_
-@@ -1186,14 +1186,18 @@ apr_status_t md_json_read_http(md_json_t
-@@ -1264,7 +1268,7 @@ apr_status_t md_json_set_timeperiod(cons
-+++ b/modules/md/md_log.h
-@@ -38,6 +38,10 @@ typedef enum {
-+++ b/modules/md/md_ocsp.c
-@@ -32,13 +32,6 @@
-@@ -65,6 +58,7 @@ struct md_ocsp_reg_t {
-@@ -196,6 +190,7 @@ static apr_status_t ostat_from_json(md_o
-@@ -279,7 +274,8 @@ static apr_status_t ocsp_reg_cleanup(voi
-@@ -296,6 +292,7 @@ apr_status_t md_ocsp_reg_make(md_ocsp_re
-@@ -338,7 +335,7 @@ apr_status_t md_ocsp_prime(md_ocsp_reg_t
-@@ -449,7 +446,7 @@ static void ocsp_get_meta(md_ocsp_cert_s
-@@ -535,7 +532,7 @@ static const char *certid_summary(const
-@@ -560,7 +557,9 @@ static const char *single_resp_summary(O
-@@ -640,7 +639,7 @@ static apr_status_t ostat_on_resp(const
-@@ -650,7 +649,7 @@ static apr_status_t ostat_on_resp(const
-@@ -680,12 +679,6 @@ static apr_status_t ostat_on_resp(const
-@@ -700,7 +693,14 @@ static apr_status_t ostat_on_resp(const
-@@ -837,8 +837,8 @@ static apr_status_t next_todo(md_http_re
-@@ -1056,5 +1056,5 @@ void md_ocsp_get_status_all(md_json_t **
-+++ b/modules/md/md_ocsp.h
-@@ -38,7 +38,8 @@ typedef struct md_ocsp_reg_t md_ocsp_reg
-+++ b/modules/md/md_reg.c
-@@ -31,6 +31,7 @@
-@@ -52,6 +53,10 @@ struct md_reg_t {
-@@ -75,11 +80,25 @@ static apr_status_t load_props(md_reg_t
-@@ -92,8 +111,12 @@ apr_status_t md_reg_create(md_reg_t **pr
-@@ -163,12 +186,17 @@ static apr_status_t check_values(md_reg_
-@@ -204,11 +232,21 @@ static apr_status_t state_init(md_reg_t
-@@ -243,7 +281,7 @@ static apr_status_t state_init(md_reg_t
-@@ -444,7 +482,8 @@ static apr_status_t p_md_update(void *ba
-@@ -650,13 +689,18 @@ apr_time_t md_reg_renew_at(md_reg_t *reg
-@@ -664,7 +708,7 @@ apr_time_t md_reg_renew_at(md_reg_t *reg
-@@ -672,7 +716,7 @@ apr_time_t md_reg_renew_at(md_reg_t *reg
-@@ -836,12 +880,24 @@ apr_status_t md_reg_sync_start(md_reg_t
-@@ -896,13 +952,23 @@ apr_status_t md_reg_sync_finish(md_reg_t
-@@ -917,13 +983,16 @@ apr_status_t md_reg_sync_finish(md_reg_t
-@@ -936,6 +1005,8 @@ apr_status_t md_reg_sync_finish(md_reg_t
-@@ -1101,8 +1172,9 @@ apr_status_t md_reg_test_init(md_reg_t *
-@@ -1112,12 +1184,15 @@ static apr_status_t run_renew(void *bato
-@@ -1125,9 +1200,57 @@ static apr_status_t run_renew(void *bato
-@@ -1152,7 +1275,7 @@ static apr_status_t run_load_staging(voi
-@@ -1199,6 +1322,54 @@ apr_status_t md_reg_load_staging(md_reg_
-@@ -1232,5 +1403,40 @@ void md_reg_set_warn_window_default(md_r
-+++ b/modules/md/md_reg.h
-@@ -23,6 +23,7 @@ struct md_pkey_t;
-@@ -34,9 +35,18 @@ typedef struct md_reg_t md_reg_t;
-@@ -173,6 +183,14 @@ int md_reg_should_renew(md_reg_t *reg, c
-@@ -212,6 +230,8 @@ struct md_proto_driver_t {
-@@ -220,6 +240,9 @@ typedef apr_status_t md_proto_renew_cb(m
-@@ -227,6 +250,8 @@ struct md_proto_t {
-@@ -240,11 +265,17 @@ apr_status_t md_reg_test_init(md_reg_t *
-@@ -259,9 +290,42 @@ apr_status_t md_reg_renew(md_reg_t *reg,
-+++ b/modules/md/md_status.c
-@@ -47,12 +47,21 @@ static apr_status_t status_get_cert_json
-@@ -111,9 +120,14 @@ static apr_status_t status_get_cert_json
-@@ -126,6 +140,7 @@ static apr_status_t status_get_cert_json
-@@ -206,7 +221,7 @@ static apr_status_t status_get_md_json(m
-@@ -236,20 +251,28 @@ static apr_status_t status_get_md_json(m
-@@ -286,7 +309,8 @@ apr_status_t md_status_get_json(md_json_
-@@ -294,6 +318,7 @@ md_job_t *md_job_make(apr_pool_t *p, md_
-@@ -587,10 +612,16 @@ apr_time_t md_job_delay_on_errors(md_job
-+++ b/modules/md/md_status.h
-@@ -68,6 +68,7 @@ struct md_job_t {
-@@ -75,7 +76,8 @@ struct md_job_t {
-+++ b/modules/md/md_store.c
-@@ -260,7 +260,7 @@ static const char *pk_filename(const cha
-@@ -374,3 +374,12 @@ apr_status_t md_store_md_iter(md_store_m
-+++ b/modules/md/md_store.h
-@@ -204,7 +204,23 @@ apr_status_t md_store_iter_names(md_stor
-@@ -303,6 +319,8 @@ typedef apr_time_t md_store_get_modified
-@@ -317,6 +335,8 @@ struct md_store_t {
-+++ b/modules/md/md_store_fs.c
-@@ -39,6 +39,7 @@
-@@ -60,6 +61,8 @@ struct md_store_fs_t {
-@@ -101,6 +104,9 @@ static int fs_is_newer(md_store_t *store
-@@ -240,8 +246,8 @@ static apr_status_t read_store_file(md_s
-@@ -269,6 +275,15 @@ static apr_status_t setup_store_file(voi
-@@ -296,7 +311,9 @@ apr_status_t md_store_fs_init(md_store_t
-@@ -521,7 +538,8 @@ static apr_status_t mk_group_dir(const c
-@@ -1093,3 +1111,67 @@ static apr_status_t fs_rename(md_store_t
-+++ b/modules/md/md_time.c
-@@ -323,3 +323,70 @@ md_timeperiod_t md_timeperiod_common(con
-+++ b/modules/md/md_time.h
-@@ -74,4 +74,7 @@ const char *md_timeslice_format(const md
-+++ b/modules/md/md_util.c
-@@ -256,7 +256,7 @@ int md_array_str_index(const apr_array_h
-@@ -278,7 +278,7 @@ int md_array_str_eq(const struct apr_arr
-@@ -325,7 +325,7 @@ apr_array_header_t *md_array_str_remove(
-@@ -398,6 +398,16 @@ apr_status_t md_util_is_file(const char
-@@ -849,10 +859,10 @@ int md_dns_matches(const char *pattern,
-@@ -906,6 +916,19 @@ int md_dns_domains_match(const apr_array
-@@ -1003,8 +1026,8 @@ apr_status_t md_util_abs_http_uri_check(
-@@ -1058,32 +1081,24 @@ apr_status_t md_util_try(md_util_try_fn
-@@ -1494,7 +1509,7 @@ static int find_url(void *baton, const c
-+++ b/modules/md/md_util.h
-@@ -20,6 +20,16 @@
-@@ -133,7 +143,7 @@ int md_array_str_add_missing(struct apr_
-@@ -174,6 +184,11 @@ struct apr_array_header_t *md_dns_make_m
-@@ -189,6 +204,7 @@ apr_status_t md_util_path_merge(const ch
-+++ b/modules/md/md_version.h
-@@ -27,7 +27,7 @@
-@@ -35,8 +35,8 @@
-+++ b/modules/md/mod_md.c
-@@ -98,7 +98,7 @@ static void log_print(const char *file,
-@@ -183,7 +183,7 @@ static apr_status_t notify(md_job_t *job
-@@ -202,7 +202,7 @@ static apr_status_t notify(md_job_t *job
-@@ -313,8 +313,8 @@ static void merge_srv_config(md_t *md, m
-@@ -331,7 +331,8 @@ static void merge_srv_config(md_t *md, m
-@@ -363,6 +364,15 @@ static void merge_srv_config(md_t *md, m
-@@ -377,12 +387,12 @@ static apr_status_t check_coverage(md_t
-@@ -586,18 +596,30 @@ static apr_status_t link_md_to_servers(m
-@@ -670,17 +692,19 @@ static apr_status_t merge_mds_with_conf(
-@@ -705,7 +729,7 @@ static apr_status_t merge_mds_with_conf(
-@@ -713,27 +737,6 @@ static apr_status_t merge_mds_with_conf(
-@@ -886,16 +889,22 @@ static apr_status_t md_post_config_befor
-@@ -929,14 +938,25 @@ static apr_status_t md_post_config_befor
-@@ -1167,7 +1187,7 @@ static apr_status_t get_certificates(ser
-@@ -1247,7 +1267,7 @@ static int md_add_cert_files(server_rec
-@@ -1276,55 +1296,95 @@ static int md_add_fallback_cert_files(se
-@@ -1359,6 +1419,15 @@ static int md_http_challenge_pr(request_
-@@ -1496,7 +1565,7 @@ static void md_hooks(apr_pool_t *pool)
-+++ b/modules/md/mod_md.dsp
-@@ -205,6 +205,10 @@ SOURCE=./md_store_fs.c
-+++ b/modules/md/mod_md.mak
-@@ -80,6 +80,7 @@ CLEAN :
-@@ -163,6 +164,7 @@ LINK32_OBJS= \
-@@ -239,6 +241,7 @@ CLEAN :
-@@ -322,6 +325,7 @@ LINK32_OBJS= \
-@@ -565,6 +569,11 @@ SOURCE=./md_store_fs.c
-+++ b/modules/md/mod_md_config.c
-@@ -26,6 +26,7 @@
-@@ -83,6 +84,13 @@ static md_mod_conf_t defmc = {
-@@ -106,15 +114,19 @@ static md_srv_conf_t defconf = {
-@@ -160,15 +172,19 @@ static void srv_conf_props_clear(md_srv_
-@@ -180,15 +196,19 @@ static void srv_conf_props_copy(md_srv_c
-@@ -200,7 +220,7 @@ static void srv_conf_props_apply(md_t *m
-@@ -211,7 +231,11 @@ static void srv_conf_props_apply(md_t *m
-@@ -246,7 +270,8 @@ static void *md_config_merge(apr_pool_t
-@@ -254,8 +279,11 @@ static void *md_config_merge(apr_pool_t
-@@ -269,7 +297,7 @@ void *md_config_merge_svr(apr_pool_t *po
-@@ -314,10 +342,10 @@ static const char *md_conf_check_locatio
-@@ -337,11 +365,11 @@ static void add_domain_name(apr_array_he
-@@ -474,19 +502,29 @@ static const char *md_config_set_names(c
-@@ -536,13 +574,13 @@ static const char *md_config_set_renew_m
-@@ -556,6 +594,31 @@ static const char *md_config_set_renew_m
-@@ -592,6 +655,18 @@ static const char *md_config_set_staple_
-@@ -602,6 +677,127 @@ static const char *md_config_set_base_se
-@@ -611,13 +807,13 @@ static const char *md_config_set_require
-@@ -802,7 +998,7 @@ static const char *md_config_set_pkeys(c
-@@ -827,7 +1023,7 @@ static const char *md_config_set_pkeys(c
-@@ -889,11 +1085,35 @@ static const char *md_config_set_dns01_c
-@@ -1039,7 +1259,7 @@ static const char *md_config_set_eab(cmd
-@@ -1089,8 +1309,8 @@ leave:
-@@ -1138,7 +1358,9 @@ const command_rec md_cmds[] = {
-@@ -1166,7 +1388,24 @@ const command_rec md_cmds[] = {
-@@ -1225,8 +1464,6 @@ md_srv_conf_t *md_config_cget(conn_rec *
-@@ -1239,6 +1476,8 @@ const char *md_config_gets(const md_srv_
-@@ -1259,6 +1498,10 @@ int md_config_geti(const md_srv_conf_t *
-+++ b/modules/md/mod_md_config.h
-@@ -24,7 +24,6 @@ struct md_ocsp_reg_t;
-@@ -40,8 +39,16 @@ typedef enum {
-@@ -71,6 +78,13 @@ struct md_mod_conf_t {
-@@ -86,16 +100,21 @@ typedef struct md_srv_conf_t {
-+++ b/modules/md/mod_md_drive.c
-@@ -100,22 +100,80 @@ static void process_drive_job(md_renew_c
-@@ -125,7 +183,11 @@ static void process_drive_job(md_renew_c
-@@ -154,7 +216,7 @@ static void process_drive_job(md_renew_c
-@@ -180,10 +242,13 @@ int md_will_renew_cert(const md_t *md)
-@@ -211,7 +276,7 @@ static apr_status_t run_watchdog(int sta
-@@ -338,7 +403,7 @@ apr_status_t md_renew_start_watching(md_
-+++ b/modules/md/mod_md_status.c
-@@ -13,7 +13,7 @@
-@@ -55,6 +55,7 @@
-@@ -66,13 +67,13 @@ int md_http_cert_status(request_rec *r)
-@@ -84,7 +85,7 @@ int md_http_cert_status(request_rec *r)
-@@ -94,7 +95,7 @@ int md_http_cert_status(request_rec *r)
-@@ -124,23 +125,23 @@ int md_http_cert_status(request_rec *r)
-@@ -151,10 +152,12 @@ typedef struct {
-@@ -179,13 +182,19 @@ static void si_val_status(status_ctx *ct
-@@ -195,19 +204,28 @@ static void si_val_url(status_ctx *ctx,
-@@ -216,14 +234,21 @@ static void print_date(apr_bucket_brigad
-@@ -231,7 +256,7 @@ static void print_time(apr_bucket_brigad
-@@ -241,25 +266,32 @@ static void print_time(apr_bucket_brigad
-@@ -267,50 +299,115 @@ static void si_val_valid_time(status_ctx
-@@ -324,83 +421,139 @@ static int count_certs(void *baton, cons
-@@ -408,13 +561,33 @@ static int cert_check_iter(void *baton,
-@@ -423,7 +596,14 @@ static void si_val_remote_check(status_c
-@@ -431,24 +611,43 @@ static void si_val_stapling(status_ctx *
-@@ -460,13 +659,27 @@ static void add_json_val(status_ctx *ctx
-@@ -475,7 +688,14 @@ static void add_status_cell(status_ctx *
-@@ -484,24 +704,33 @@ static const status_info status_infos[]
-@@ -514,96 +743,121 @@ int md_domains_status_hook(request_rec *
-@@ -611,53 +865,65 @@ int md_ocsp_status_hook(request_rec *r,
-@@ -687,7 +953,7 @@ int md_status_handler(request_rec *r)
-@@ -695,7 +961,7 @@ int md_status_handler(request_rec *r)
-@@ -706,12 +972,12 @@ int md_status_handler(request_rec *r)
+ 
+  188:     return conf;
+  189: }
+  190: 
+  191: static void *md_config_merge(apr_pool_t *pool, void *basev, void *addv)
+  192: {
+  193:     md_srv_conf_t *base = (md_srv_conf_t *)basev;
+  194:     md_srv_conf_t *add = (md_srv_conf_t *)addv;
+  195:     md_srv_conf_t *nsc;
+  196:     char *name = apr_pstrcat(pool, "[", CONF_S_NAME(add->s), ", ", CONF_S_NAME(base->s), "]", NULL);
+  197:     
+  198:     nsc = (md_srv_conf_t *)apr_pcalloc(pool, sizeof(md_srv_conf_t));
+  199:     nsc->name = name;
+  200:     nsc->mc = add->mc? add->mc : base->mc;
+  201:     nsc->assigned = add->assigned? add->assigned : base->assigned;
+  202: 
+  203:     nsc->transitive = (add->transitive != DEF_VAL)? add->transitive : base->transitive;
+  204:     nsc->require_https = (add->require_https != MD_REQUIRE_UNSET)? add->require_https : base->require_https;
+  205:     nsc->renew_mode = (add->renew_mode != DEF_VAL)? add->renew_mode : base->renew_mode;
+  206:     nsc->must_staple = (add->must_staple != DEF_VAL)? add->must_staple : base->must_staple;
+  207:     nsc->pkey_spec = add->pkey_spec? add->pkey_spec : base->pkey_spec;
+  208:     nsc->renew_window = add->renew_window? add->renew_window : base->renew_window;
+  209:     nsc->warn_window = add->warn_window? add->warn_window : base->warn_window;
+  210: 
+  211:     nsc->ca_url = add->ca_url? add->ca_url : base->ca_url;
+  212:     nsc->ca_proto = add->ca_proto? add->ca_proto : base->ca_proto;
+  213:     nsc->ca_agreement = add->ca_agreement? add->ca_agreement : base->ca_agreement;
+  214:     nsc->ca_challenges = (add->ca_challenges? apr_array_copy(pool, add->ca_challenges) 
+  215:                     : (base->ca_challenges? apr_array_copy(pool, base->ca_challenges) : NULL));
+  216:     nsc->current = NULL;
+  217:     nsc->assigned = NULL;
+  218:     
+  219:     return nsc;
+  220: }
+  221: 
+  222: void *md_config_merge_svr(apr_pool_t *pool, void *basev, void *addv)
+  223: {
+  224:     return md_config_merge(pool, basev, addv);
+  225: }
+  226: 
+  227: static int inside_section(cmd_parms *cmd, const char *section) {
+  228:     ap_directive_t *d;
+  229:     for (d = cmd->directive->parent; d; d = d->parent) {
+  230:        if (!ap_cstr_casecmp(d->directive, section)) {
+  231:            return 1;
+  232:        }
+  233:     }
+  234:     return 0; 
+  235: }
+  236: 
+  237: static int inside_md_section(cmd_parms *cmd) {
+  238:     return (inside_section(cmd, MD_CMD_MD_SECTION) || inside_section(cmd, MD_CMD_MD2_SECTION));
+  239: }
+  240: 
+  241: static const char *md_section_check(cmd_parms *cmd) {
+  242:     if (!inside_md_section(cmd)) {
+  243:         return apr_pstrcat(cmd->pool, cmd->cmd->name, " is only valid inside a '",  
+  244:                            MD_CMD_MD_SECTION, "' context, not here", NULL);
+  245:     }
+  246:     return NULL;
+  247: }
+  248: 
+  249: static const char *set_on_off(int *pvalue, const char *s, apr_pool_t *p)
+  250: {
+  251:     if (!apr_strnatcasecmp("off", s)) {
+  252:         *pvalue = 0;
+  253:     }
+  254:     else if (!apr_strnatcasecmp("on", s)) {
+  255:         *pvalue = 1;
+  256:     }
+  257:     else {
+  258:         return apr_pstrcat(p, "unknown '", s, 
+  259:                            "', supported parameter values are 'on' and 'off'", NULL);
+  260:     }
+  261:     return NULL;
+  262: }
+  263: 
+  264: 
+  265: static void add_domain_name(apr_array_header_t *domains, const char *name, apr_pool_t *p)
+  266: {
+  267:     if (md_array_str_index(domains, name, 0, 0) < 0) {
+  268:         APR_ARRAY_PUSH(domains, char *) = md_util_str_tolower(apr_pstrdup(p, name));
+  269:     }
+  270: }
+  271: 
+  272: static const char *set_transitive(int *ptransitive, const char *value)
+  273: {
+  274:     if (!apr_strnatcasecmp("auto", value)) {
+  275:         *ptransitive = 1;
+  276:         return NULL;
+  277:     }
+  278:     else if (!apr_strnatcasecmp("manual", value)) {
+  279:         *ptransitive = 0;
+  280:         return NULL;
+  281:     }
+  282:     return "unknown value, use \"auto|manual\"";
+  283: }
+  284: 
+  285: static const char *md_config_sec_start(cmd_parms *cmd, void *mconfig, const char *arg)
+  286: {
+  287:     md_srv_conf_t *sc;
+  288:     md_srv_conf_t save;
+  289:     const char *endp;
+  290:     const char *err, *name;
+  291:     apr_array_header_t *domains;
+  292:     md_t *md;
+  293:     int transitive = -1;
+  294:     
+  295:     (void)mconfig;
 ~~~
 
-## CVE-2025-55753-3.patch: affected hunks
+## Native Focal md_config_merge
 
-~~~text
-+++ b/modules/md/md_version.h
-@@ -27,7 +27,7 @@
-@@ -35,7 +35,7 @@
-+++ b/modules/md/mod_md_config.c
-@@ -282,6 +282,7 @@ static void *md_config_merge(apr_pool_t *pool, void *basev, void *addv)
-+++ b/modules/md/mod_md_ocsp.c
-@@ -61,8 +61,18 @@ int md_ocsp_prime_status(server_rec *s, apr_pool_t *p,
+~~~c
+  216:     nsc->current = NULL;
+  217:     nsc->assigned = NULL;
+  218:     
+  219:     return nsc;
+  220: }
+  221: 
+  222: void *md_config_merge_svr(apr_pool_t *pool, void *basev, void *addv)
+  223: {
+  224:     return md_config_merge(pool, basev, addv);
+  225: }
+  226: 
+  227: static int inside_section(cmd_parms *cmd, const char *section) {
+  228:     ap_directive_t *d;
+  229:     for (d = cmd->directive->parent; d; d = d->parent) {
+  230:        if (!ap_cstr_casecmp(d->directive, section)) {
+  231:            return 1;
+  232:        }
+  233:     }
+  234:     return 0; 
+  235: }
+  236: 
+  237: static int inside_md_section(cmd_parms *cmd) {
+  238:     return (inside_section(cmd, MD_CMD_MD_SECTION) || inside_section(cmd, MD_CMD_MD2_SECTION));
+  239: }
+  240: 
+  241: static const char *md_section_check(cmd_parms *cmd) {
+  242:     if (!inside_md_section(cmd)) {
+  243:         return apr_pstrcat(cmd->pool, cmd->cmd->name, " is only valid inside a '",  
+  244:                            MD_CMD_MD_SECTION, "' context, not here", NULL);
+  245:     }
+  246:     return NULL;
+  247: }
+  248: 
+  249: static const char *set_on_off(int *pvalue, const char *s, apr_pool_t *p)
+  250: {
+  251:     if (!apr_strnatcasecmp("off", s)) {
+  252:         *pvalue = 0;
+  253:     }
+  254:     else if (!apr_strnatcasecmp("on", s)) {
+  255:         *pvalue = 1;
+  256:     }
+  257:     else {
+  258:         return apr_pstrcat(p, "unknown '", s, 
+  259:                            "', supported parameter values are 'on' and 'off'", NULL);
+  260:     }
+  261:     return NULL;
+  262: }
+  263: 
+  264: 
+  265: static void add_domain_name(apr_array_header_t *domains, const char *name, apr_pool_t *p)
+  266: {
+  267:     if (md_array_str_index(domains, name, 0, 0) < 0) {
+  268:         APR_ARRAY_PUSH(domains, char *) = md_util_str_tolower(apr_pstrdup(p, name));
+  269:     }
+  270: }
+  271: 
+  272: static const char *set_transitive(int *ptransitive, const char *value)
+  273: {
+  274:     if (!apr_strnatcasecmp("auto", value)) {
+  275:         *ptransitive = 1;
+  276:         return NULL;
+  277:     }
+  278:     else if (!apr_strnatcasecmp("manual", value)) {
+  279:         *ptransitive = 0;
+  280:         return NULL;
+  281:     }
+  282:     return "unknown value, use \"auto|manual\"";
+  283: }
+  284: 
+  285: static const char *md_config_sec_start(cmd_parms *cmd, void *mconfig, const char *arg)
+  286: {
+  287:     md_srv_conf_t *sc;
+  288:     md_srv_conf_t save;
+  289:     const char *endp;
+  290:     const char *err, *name;
+  291:     apr_array_header_t *domains;
+  292:     md_t *md;
+  293:     int transitive = -1;
+  294:     
+  295:     (void)mconfig;
+  296:     if ((err = ap_check_cmd_context(cmd, GLOBAL_ONLY))) {
+  297:         return err;
+  298:     }
+  299:         
+  300:     sc = md_config_get(cmd->server);
+  301:     endp = ap_strrchr_c(arg, '>');
+  302:     if (endp == NULL) {
+  303:         return  MD_CMD_MD_SECTION "> directive missing closing '>'";
+  304:     }
+  305: 
+  306:     arg = apr_pstrndup(cmd->pool, arg, (apr_size_t)(endp-arg));
+  307:     if (!arg || !*arg) {
+  308:         return MD_CMD_MD_SECTION " > section must specify a unique domain name";
+  309:     }
+  310: 
+  311:     name = ap_getword_white(cmd->pool, &arg);
+  312:     domains = apr_array_make(cmd->pool, 5, sizeof(const char *));
+  313:     add_domain_name(domains, name, cmd->pool);
+  314:     while (*arg != '\0') {
+  315:         name = ap_getword_white(cmd->pool, &arg);
+  316:         if (NULL != set_transitive(&transitive, name)) {
+  317:             add_domain_name(domains, name, cmd->pool);
+  318:         }
+  319:     }
+  320: 
+  321:     if (domains->nelts == 0) {
+  322:         return "needs at least one domain name";
+  323:     }
+  324:     
+  325:     md = md_create(cmd->pool, domains);
+  326:     if (transitive >= 0) {
+  327:         md->transitive = transitive;
+  328:     }
 ~~~
 
-## CVE-2026-29168.patch: affected hunks
+## Native Focal md_config_merge
 
-~~~text
-+++ b/modules/md/md_ocsp.c
-@@ -46,7 +46,21 @@
-@@ -901,6 +915,12 @@ void md_ocsp_renew(md_ocsp_reg_t *reg, apr_pool_t *p, apr_pool_t *ptemp, apr_tim
+~~~c
+  907:     return APR_SUCCESS;
+  908: }
+  909: 
+  910: static md_srv_conf_t *config_get_int(server_rec *s, apr_pool_t *p)
+  911: {
+  912:     md_srv_conf_t *sc = (md_srv_conf_t *)ap_get_module_config(s->module_config, &md_module);
+  913:     ap_assert(sc);
+  914:     if (sc->s != s && p) {
+  915:         sc = md_config_merge(p, &defconf, sc);
+  916:         sc->name = apr_pstrcat(p, CONF_S_NAME(s), sc->name, NULL);
+  917:         sc->mc = md_mod_conf_get(p, 1);
+  918:         ap_set_module_config(s->module_config, &md_module, sc);
+  919:     }
+  920:     return sc;
+  921: }
+  922: 
+  923: md_srv_conf_t *md_config_get(server_rec *s)
+  924: {
+  925:     return config_get_int(s, NULL);
+  926: }
+  927: 
+  928: md_srv_conf_t *md_config_get_unique(server_rec *s, apr_pool_t *p)
+  929: {
+  930:     assert(p);
+  931:     return config_get_int(s, p);
+  932: }
+  933: 
+  934: md_srv_conf_t *md_config_cget(conn_rec *c)
+  935: {
+  936:     return md_config_get(c->base_server);
+  937: }
+  938: 
+  939: const char *md_config_gets(const md_srv_conf_t *sc, md_config_var_t var)
+  940: {
+  941:     switch (var) {
+  942:         case MD_CONFIG_CA_URL:
+  943:             return sc->ca_url? sc->ca_url : defconf.ca_url;
+  944:         case MD_CONFIG_CA_PROTO:
+  945:             return sc->ca_proto? sc->ca_proto : defconf.ca_proto;
+  946:         case MD_CONFIG_BASE_DIR:
+  947:             return sc->mc->base_dir;
+  948:         case MD_CONFIG_PROXY:
+  949:             return sc->mc->proxy_url;
+  950:         case MD_CONFIG_CA_AGREEMENT:
+  951:             return sc->ca_agreement? sc->ca_agreement : defconf.ca_agreement;
+  952:         case MD_CONFIG_NOTIFY_CMD:
+  953:             return sc->mc->notify_cmd;
+  954:         default:
+  955:             return NULL;
+  956:     }
+  957: }
+  958: 
+  959: int md_config_geti(const md_srv_conf_t *sc, md_config_var_t var)
+  960: {
+  961:     switch (var) {
+  962:         case MD_CONFIG_DRIVE_MODE:
+  963:             return (sc->renew_mode != DEF_VAL)? sc->renew_mode : defconf.renew_mode;
+  964:         case MD_CONFIG_LOCAL_80:
+  965:             return sc->mc->local_80;
+  966:         case MD_CONFIG_LOCAL_443:
+  967:             return sc->mc->local_443;
+  968:         case MD_CONFIG_TRANSITIVE:
+  969:             return (sc->transitive != DEF_VAL)? sc->transitive : defconf.transitive;
+  970:         case MD_CONFIG_REQUIRE_HTTPS:
+  971:             return (sc->require_https != MD_REQUIRE_UNSET)? sc->require_https : defconf.require_https;
+  972:         case MD_CONFIG_MUST_STAPLE:
+  973:             return (sc->must_staple != DEF_VAL)? sc->must_staple : defconf.must_staple;
+  974:         default:
+  975:             return 0;
+  976:     }
+  977: }
+  978: 
+  979: void md_config_get_timespan(const md_timeslice_t **pspan, const md_srv_conf_t *sc, md_config_var_t var)
+  980: {
+  981:     switch (var) {
+  982:         case MD_CONFIG_RENEW_WINDOW:
+  983:             *pspan = sc->renew_window? sc->renew_window : defconf.renew_window;
+  984:             break;
+  985:         case MD_CONFIG_WARN_WINDOW:
+  986:             *pspan = sc->warn_window? sc->warn_window : defconf.warn_window;
+  987:             break;
+  988:         default:
+  989:             break;
+  990:     }
+  991: }
+  992: 
 ~~~
 
 ## Decision gates
