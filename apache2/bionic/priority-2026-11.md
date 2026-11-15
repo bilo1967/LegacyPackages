@@ -68,3 +68,12 @@ Prioritize known relevant **code paths** and remote impact; a patch is admitted 
   path against Bionic auth code and mrscoulter's active auth modules.
   Verify binary compatibility with Niek's installed mod_php 7.4.33
   before considering any host installation.
+
+## Five-fix experimental package and PHP validation
+
+A selective source backport now incorporates `CVE-2026-63292`, `CVE-2026-56153`, `CVE-2026-56154`, `CVE-2026-44119` and `CVE-2026-59797`. The expression-parser port for `44119` is an upstream dependency of the SSLRequire fix for `59797`.
+
+- [Package build and Apache runtime smoke test: success](https://github.com/bilo1967/LegacyPackages/actions/runs/43712616135).
+- [Compatibility smoke test with Niek's Bionic PHP 7.4.33: success](https://github.com/bilo1967/LegacyPackages/actions/runs/43713119730).
+- Experimental package version: `2.4.29-1ubuntu4.27+unibo0~experimental2`; no production deployment.
+- `mod_heartmonitor`, `mod_session_cookie` and `mod_xml2enc` are not loaded on mrscoulter: defer their patches from the initial host-specific batch. Other older vulnerabilities still require later assessment.

@@ -36,3 +36,29 @@ container.
 all high-priority fixes, and the host's Niek PHP 7.4.33 binary module has
 not yet been tested against these packages. PHP must not be upgraded or
 reinstalled as a side effect of the Apache security backport.
+
+## Second milestone — focused Bionic backport with Niek PHP compatibility
+
+**Build + smoke tests succeeded (15 November 2026).** Exact Bionic base:
+`2.4.29-1ubuntu4.27`; experimental Debian version:
+`2.4.29-1ubuntu4.27+unibo0~experimental2`.
+
+Five security patch entries are included:
+
+- Imported unchanged from the verified Jammy quilt series: `CVE-2026-63292`, `CVE-2026-56153`.
+- Bionic-specific port: `CVE-2026-56154` (`mod_rewrite` subrequest lifetime; both LA-U/LA-F branches).
+- Bionic-specific port: `CVE-2026-44119` (the restricted file-function expression parser prerequisite, preserving upstream restrictions).
+- Bionic-specific port: `CVE-2026-59797` (`mod_ssl` SSLRequire; depends on `44119`).
+
+[Successful package build and Apache smoke test](https://github.com/bilo1967/LegacyPackages/actions/runs/43712616135)
+produced the `apache2-bionic-4CVE-EXPERIMENTAL` artifact (historical artifact name; **it contains five** patch entries, including the parser prerequisite). Checks included package installation, `mpm_prefork`, loaded SSL/rewrite/proxy modules, Apache syntax and an HTTP response.
+
+[Successful compatibility run with the **actual Niek Ubuntu 18.04 PHP 7.4.33 packages**](https://github.com/bilo1967/LegacyPackages/actions/runs/43713119730)
+retrieved the vendor's published `v7.4.33-2` package archive, checked its SHA256 manifest, then in a fresh Ubuntu 18.04 Docker container installed the already-built Apache packages **without recompiling** them, loaded `libapache2-mod-php7.4` with prefork and confirmed that PHP 7.4.33 responded to an HTTP request as `apache2handler`. PHP packages were temporary test inputs, **not distributed in the Apache artifact and not to be reinstalled on mrscoulter**.
+
+Pending/deferred source fixes principally affect modules absent from mrscoulter's loaded set:
+`CVE-2026-46729` (`mod_heartmonitor`), `CVE-2026-47360` (`mod_session_cookie`), and `CVE-2026-63686` (`mod_xml2enc`).
+The host's use of `mod_auth_digest`, HTTP/2, WebDAV and `mod_vhost_alias` was also absent in the inventory. These omissions **do not mean the wider Bionic security backlog is complete**.
+
+**Release status:** experimental technical proof, **not yet a production release**.
+No changes were made to mrscoulter. Before deploying a candidate, create an explicit RC version, retain original Bionic DEBs and `/etc/apache2` backup, confirm an `apt -s install` transaction affecting only the Apache packages, then stage a service restart and functional checks. The standard Apache module ABI was preserved, and Niek mod_php loads successfully, but the selected security behavior has not undergone a comprehensive independent exploit-focused audit. This package is **not Canonical ESM-equivalent**.
