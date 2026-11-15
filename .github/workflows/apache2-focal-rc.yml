@@ -118,6 +118,7 @@ jobs:
           set -euo pipefail
           tested_sha="${TESTED_SHA:-$GITHUB_SHA}"
           git fetch --tags --force origin
+          git fetch --no-tags origin "$tested_sha"
           existing=$(git rev-parse -q --verify "refs/tags/$RELEASE_TAG^{}" || true)
           if [ -n "$existing" ]; then
             test "$existing" = "$tested_sha" || {
