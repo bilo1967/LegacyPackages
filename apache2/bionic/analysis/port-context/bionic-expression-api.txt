@@ -1,0 +1,242 @@
+## include/ap_expr.h
+
+48:     /** The line number where the expression has been defined (for logging). */
+49:     unsigned int line_number;
+50:     /** Flags relevant for the expression, see AP_EXPR_FLAG_* */
+51:     unsigned int flags;
+52:     /** The module that is used for loglevel configuration */
+
+57:  * operators)
+58:  */
+59: #define AP_EXPR_FLAG_SSL_EXPR_COMPAT       1
+60: /** Don't add siginificant request headers to the Vary response header */
+61: #define AP_EXPR_FLAG_DONT_VARY             2
+
+59: #define AP_EXPR_FLAG_SSL_EXPR_COMPAT       1
+60: /** Don't add siginificant request headers to the Vary response header */
+61: #define AP_EXPR_FLAG_DONT_VARY             2
+62: /** Don't allow functions/vars that bypass the current request's access
+63:  *  restrictions or would otherwise leak confidential information.
+
+64:  *  Used by e.g. mod_include.
+65:  */
+66: #define AP_EXPR_FLAG_RESTRICTED            4
+67: /** Expression evaluates to a string, not to a bool */
+68: #define AP_EXPR_FLAG_STRING_RESULT         8
+
+66: #define AP_EXPR_FLAG_RESTRICTED            4
+67: /** Expression evaluates to a string, not to a bool */
+68: #define AP_EXPR_FLAG_STRING_RESULT         8
+69: 
+70: 
+
+77:  * @note err will be set to NULL on success, or to an error message on error
+78:  * @note request headers used during evaluation will be added to the Vary:
+79:  *       response header, unless ::AP_EXPR_FLAG_DONT_VARY is set.
+80:  */
+81: AP_DECLARE(int) ap_expr_exec(request_rec *r, const ap_expr_info_t *expr,
+
+96:  *       later on.
+97:  * @note request headers used during evaluation will be added to the Vary:
+98:  *       response header, unless ::AP_EXPR_FLAG_DONT_VARY is set.
+99:  */
+100: AP_DECLARE(int) ap_expr_exec_re(request_rec *r, const ap_expr_info_t *expr,
+
+154:  * @note err will be set to NULL on success, or to an error message on error
+155:  * @note request headers used during evaluation will be added to the Vary:
+156:  *       response header, unless ::AP_EXPR_FLAG_DONT_VARY is set.
+157:  */
+158: AP_DECLARE(const char *) ap_expr_str_exec(request_rec *r,
+
+174:  *       later on.
+175:  * @note request headers used during evaluation will be added to the Vary:
+176:  *       response header, unless ::AP_EXPR_FLAG_DONT_VARY is set.
+177:  */
+178: AP_DECLARE(const char *) ap_expr_str_exec_re(request_rec *r,
+
+193:  * may also parse that argument and store the parsed data in the context.
+194:  *
+195:  * The default lookup function is the hook ::ap_expr_lookup_default which just
+196:  * calls ap_run_expr_lookup. Modules can use it to make functions and
+197:  * variables generally available.
+
+279:      *  For binary ops, this is the right argument. */
+280:     const char *arg;
+281: } ap_expr_lookup_parms;
+282: 
+283: /** Function for looking up the provider function for a variable, operator
+
+289:  *          DECLINED if the requested name is not handled by this function
+290:  */
+291: typedef int (ap_expr_lookup_fn_t)(ap_expr_lookup_parms *parms);
+292: 
+293: /** Default lookup function which just calls ap_run_expr_lookup().
+
+295:  *  calling convention under Windows.
+296:  */
+297: AP_DECLARE_NONSTD(int) ap_expr_lookup_default(ap_expr_lookup_parms *parms);
+298: 
+299: AP_DECLARE_HOOK(int, expr_lookup, (ap_expr_lookup_parms *parms))
+
+297: AP_DECLARE_NONSTD(int) ap_expr_lookup_default(ap_expr_lookup_parms *parms);
+298: 
+299: AP_DECLARE_HOOK(int, expr_lookup, (ap_expr_lookup_parms *parms))
+300: 
+301: /**
+
+312: AP_DECLARE(const char *) ap_expr_parse(apr_pool_t *pool, apr_pool_t *ptemp,
+313:                                        ap_expr_info_t *info, const char *expr,
+314:                                        ap_expr_lookup_fn_t *lookup_fn);
+315: 
+316: /**
+
+319:  * @param cmd The cmd_parms struct
+320:  * @param expr The expression string to parse
+321:  * @param flags The flags to use, see AP_EXPR_FLAG_*
+322:  * @param err Set to NULL on success, error message on error
+323:  * @param lookup_fn The lookup function used to lookup vars, functions, and
+
+331:                                                   unsigned int flags,
+332:                                                   const char **err,
+333:                                                   ap_expr_lookup_fn_t *lookup_fn,
+334:                                                   int module_index);
+335: 
+
+## server/util_expr_eval.c
+
+43: )
+44: 
+45: AP_IMPLEMENT_HOOK_RUN_FIRST(int, expr_lookup, (ap_expr_lookup_parms *parms),
+46:                             (parms), DECLINED)
+47: 
+
+367: }
+368: 
+369: AP_DECLARE_NONSTD(int) ap_expr_lookup_default(ap_expr_lookup_parms *parms)
+370: {
+371:     return ap_run_expr_lookup(parms);
+
+374: AP_DECLARE(const char *) ap_expr_parse(apr_pool_t *pool, apr_pool_t *ptemp,
+375:                                        ap_expr_info_t *info, const char *expr,
+376:                                        ap_expr_lookup_fn_t *lookup_fn)
+377: {
+378:     ap_expr_parse_ctx_t ctx;
+
+391:     ctx.scan_buf[0] = '\0';
+392:     ctx.scan_ptr    = ctx.scan_buf;
+393:     ctx.lookup_fn   = lookup_fn ? lookup_fn : ap_expr_lookup_default;
+394:     ctx.at_start    = 1;
+395: 
+
+425:                                                  unsigned int flags,
+426:                                                  const char **err,
+427:                                                  ap_expr_lookup_fn_t *lookup_fn,
+428:                                                  int module_index)
+429: {
+
+456: {
+457:     ap_expr_t *info = apr_palloc(ctx->pool, sizeof(ap_expr_t));
+458:     ap_expr_lookup_parms parms;
+459:     parms.type  = type;
+460:     parms.flags = ctx->flags;
+
+791:             goto out;
+792:         case op_Comp:
+793:             if (ctx->info->flags & AP_EXPR_FLAG_SSL_EXPR_COMPAT)
+794:                 result ^= ssl_expr_eval_comp(ctx, e1);
+795:             else
+
+832: 
+833:     *ctx->err = NULL;
+834:     if (ctx->info->flags & AP_EXPR_FLAG_STRING_RESULT) {
+835:         *ctx->result_string = ap_expr_eval_word(ctx, ctx->info->root_node);
+836:         if (*ctx->err != NULL) {
+
+873: {
+874:     ap_expr_eval_ctx_t ctx;
+875:     int dont_vary = (info->flags & AP_EXPR_FLAG_DONT_VARY);
+876:     const char *tmp_source = NULL, *vary_this = NULL;
+877:     ap_regmatch_t tmp_pmatch[AP_MAX_REG_MATCH];
+
+877:     ap_regmatch_t tmp_pmatch[AP_MAX_REG_MATCH];
+878: 
+879:     AP_DEBUG_ASSERT((info->flags & AP_EXPR_FLAG_STRING_RESULT) == 0);
+880: 
+881:     ctx.r = r;
+
+913:     const char *result;
+914: 
+915:     AP_DEBUG_ASSERT(info->flags & AP_EXPR_FLAG_STRING_RESULT);
+916: 
+917:     if (info->root_node->node_op == op_String) {
+
+924:     vary_this = NULL;
+925: 
+926:     dont_vary = (info->flags & AP_EXPR_FLAG_DONT_VARY);
+927: 
+928:     ctx.r = r;
+
+1092: 
+1093: #define MAX_FILE_SIZE 10*1024*1024
+1094: static const char *file_func(ap_expr_eval_ctx_t *ctx, const void *data,
+1095:                              char *arg)
+1096: {
+
+1534: }
+1535: 
+1536: static int subnet_parse_arg(ap_expr_lookup_parms *parms)
+1537: {
+1538:     apr_ipsubnet_t *subnet;
+
+1633:     const void *func;
+1634:     const char *name;
+1635:     ap_expr_lookup_fn_t *arg_parsing_func;
+1636:     int restricted;
+1637: };
+
+1664:     { escape_func,          "escape",         NULL, 0 },
+1665:     { unescape_func,        "unescape",       NULL, 0 },
+1666:     { file_func,            "file",           NULL, 1 },
+1667:     { filesize_func,        "filesize",       NULL, 1 },
+1668:     { base64_func,          "base64",         NULL, 0 },
+
+1699: };
+1700: 
+1701: static int core_expr_lookup(ap_expr_lookup_parms *parms)
+1702: {
+1703:     switch (parms->type) {
+
+1742:                     match = !strcasecmp(prov->name, parms->name);
+1743:                 if (match) {
+1744:                     if ((parms->flags & AP_EXPR_FLAG_RESTRICTED)
+1745:                         && prov->restricted) {
+1746:                         *parms->err =
+
+1770: }
+1771: 
+1772: static int expr_lookup_not_found(ap_expr_lookup_parms *parms)
+1773: {
+1774:     const char *type;
+
+## server/util_expr_private.h
+
+107:      * and funtctions
+108:      */
+109:     ap_expr_lookup_fn_t *lookup_fn;
+110: } ap_expr_parse_ctx_t;
+111: 
+
+## server/util_expr_scan.c
+
+870:   if (yyextra->at_start) {
+871:     yyextra->at_start = 0;
+872:     if (yyextra->flags & AP_EXPR_FLAG_STRING_RESULT) {
+873:         BEGIN(str);
+874:         return T_EXPR_STRING;
+
+1029: #line 144 "util_expr_scan.l"
+1030: {
+1031:     if (!(yyextra->flags & AP_EXPR_FLAG_STRING_RESULT)) {
+1032:         PERROR("Unterminated string or variable");
+1033:     }
+
