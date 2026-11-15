@@ -9,7 +9,7 @@ on:
       - 'apache2/bionic/tools/prepare-two.py'
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   bionic-2cve-build:
@@ -22,6 +22,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p output
+          set +e
           docker run --rm --cpus=2 --memory=4g --pids-limit=256 \
             --mount type=bind,source="$PWD",target=/repo \
             --workdir /repo \
@@ -47,7 +48,27 @@ jobs:
               dpkg-buildpackage -b -us -uc -j2
               cp /tmp/bionic/*.deb /repo/output/
               (cd /repo/output && sha256sum ./*.deb > SHA256SUMS)
-            '
+            ' > output/bionic-build.log 2>&1
+          result=$?
+          set -e
+          tail -n 120 output/bionic-build.log
+          if [ "$result" -ne 0 ]; then
+            tail -n 150 output/bionic-build.log > output/bionic-build-error.txt
+            exit "$result"
+          fi
+      - name: Save build failure diagnostic to Bionic branch
+        if: failure()
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f output/bionic-build-error.txt
+          mkdir -p apache2/bionic/analysis
+          cp output/bionic-build-error.txt apache2/bionic/analysis/experimental-build-error.txt
+          git add apache2/bionic/analysis/experimental-build-error.txt
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "ci(bionic): record experimental build error"
+          git push origin HEAD:backport/bionic
       - name: Smoke-test Apache with Bionic packages, prefork and loaded host modules
         shell: bash
         run: |
@@ -74,6 +95,7 @@ jobs:
               dpkg-query -W apache2 apache2-bin apache2-data apache2-utils
             '
       - name: Upload experimental Bionic packages and patch manifest
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: apache2-bionic-2CVE-EXPERIMENTAL
