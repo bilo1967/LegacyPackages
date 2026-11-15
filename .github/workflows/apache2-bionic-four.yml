@@ -1,11 +1,6 @@
 name: Bionic EXPERIMENTAL four-CVE compatibility build
 
 on:
-  push:
-    branches: [backport/bionic]
-    paths:
-      - '.github/workflows/apache2-bionic-four.yml'
-      - 'apache2/bionic/tools/prepare-four.py'
   workflow_dispatch:
 
 permissions:

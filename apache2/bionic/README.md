@@ -62,3 +62,22 @@ The host's use of `mod_auth_digest`, HTTP/2, WebDAV and `mod_vhost_alias` was al
 
 **Release status:** experimental technical proof, **not yet a production release**.
 No changes were made to mrscoulter. Before deploying a candidate, create an explicit RC version, retain original Bionic DEBs and `/etc/apache2` backup, confirm an `apt -s install` transaction affecting only the Apache packages, then stage a service restart and functional checks. The standard Apache module ABI was preserved, and Niek mod_php loads successfully, but the selected security behavior has not undergone a comprehensive independent exploit-focused audit. This package is **not Canonical ESM-equivalent**.
+
+## Interim RC1 for test deployment
+
+RC Debian version: `2.4.29-1ubuntu4.27+unibo1~rc1`. The RC is generated
+from the **same five source patch entries** as the successful experimental
+build. It is a partial security backport for the modules used on
+`mrscoulter`, not a statement that Ubuntu 18.04 is fully secured or ESM-equivalent.
+
+The CI candidate workflow compiles in a disposable Ubuntu 18.04 container,
+checks the five intended Apache `.deb` versions, simulates the upgrade over
+the original Ubuntu packages **with Niek PHP 7.4.33 installed**, requires no
+PHP package transaction, then installs the RC and executes an HTTP PHP request.
+The published artifact includes the five Apache packages, their SHA256 checksums,
+and a tar archive retaining the exact Debian filenames with `+` and `~`.
+
+For deployment preserve `/etc/apache2`, installed package versions and the
+original Ubuntu `.deb` packages. Inspect `apt -s install ./*.deb` before
+proceeding. The dpkg maintainer scripts may restart Apache automatically;
+arrange a maintenance window and check the vhosts after installation.

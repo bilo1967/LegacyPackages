@@ -17,7 +17,9 @@ if len(sys.argv) != 4:
     sys.exit("usage: prepare-four.py BIONIC_SOURCE JAMMY_PATCH_ROOT OUTPUT_REPORT")
 src, vendor, out = [Path(x).resolve() for x in sys.argv[1:]]
 out.mkdir(parents=True, exist_ok=True)
-version = "2.4.29-1ubuntu4.27+unibo0~experimental2"
+version = os.environ.get("APACHE_BIONIC_VERSION", "2.4.29-1ubuntu4.27+unibo0~experimental2")
+if version not in ("2.4.29-1ubuntu4.27+unibo0~experimental2", "2.4.29-1ubuntu4.27+unibo1~rc1"):
+    sys.exit("Unapproved Bionic package version: " + version)
 patch_dir = src / "debian/patches"
 series = patch_dir / "series"
 existing = set(l.split()[0] for l in series.read_text().splitlines()
@@ -145,14 +147,14 @@ add(port_names[2], native_diff("modules/ssl/ssl_engine_config.c",old,
 
 date=datetime.now(timezone.utc).strftime("%a, %d %b %Y %H:%M:%S +0000")
 entry=("apache2 ("+version+") bionic; urgency=medium\n\n"
-       "  * Experimental selective security backport; not ESM-equivalent.\n"
+       "  * Limited security backport candidate; not ESM-equivalent.\n"
        "  * Import CVE-2026-63292 and CVE-2026-56153 unchanged.\n"
        "  * Native Bionic ports of CVE-2026-56154, CVE-2026-44119 and CVE-2026-59797.\n\n"
        " -- LegacyPackages CI <noreply@github.com>  "+date+"\n\n")
 changelog=src/"debian/changelog"
 changelog.write_text(entry+changelog.read_text(encoding="utf-8"),encoding="utf-8")
 (out/"EXPERIMENTAL-MANIFEST.md").write_text(
-    "# Apache Bionic four-CVE experimental backport\n\n"
+    "# Apache Bionic five-CVE selective backport\n\n"
     "Version: `"+version+"`\n\n"
     "Exact Ubuntu Jammy quilt patches:\n"+
     "".join("- `"+p+"`\n" for p in source_names)+
