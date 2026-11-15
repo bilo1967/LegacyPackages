@@ -15,7 +15,7 @@ The [original production inventory](gojira-inventory.md) includes MPM prefork, `
 
 - Patch import: **63 applied and 4 excluded** in the [latest CI manifest](analysis/experimental-manifest.md). This counts *Jammy patch files*, **not CVEs**; Focal-specific patches are separate.
 - Accepted patches were applied in upstream sequence with `patch --fuzz=0`. Where contexts differed, `tools/prepare-experimental.py` constructs explicit reviewed rebase patches; do not assume `patch --dry-run` alone proves a security fix.
-- Additional Focal-only quilt changes: SNI policy structure-member fix, SSL command declaration, and `unibo-focal-mod-md-bounded-backoff.patch` (CVE applicability still under review).
+- Additional Focal-only quilt changes: SNI policy structure-member fix, SSL command declaration, and `unibo-focal-mod-md-bounded-backoff.patch` (native Focal retry arithmetic verified against the CVE mechanism; see [finding](analysis/cve-2025-55753-focal.md)).
 - GitHub Actions experimental package workflows **#81 through #84 passed**. #84 includes an actual C/UBSan boundary test for the native `mod_md` backoff expression.
 - Output artifacts: `apache2-focal-EXPERIMENTAL` from the experimental workflow (seven-day artifact retention), containing rebuilt `.deb`, SHA256 checksums, patch manifest, audits and test logs. They are **not release artifacts**.
 - Production release: **none**. Do not remove experimental labels or deploy solely because CI is green.
@@ -24,12 +24,12 @@ The [original production inventory](gojira-inventory.md) includes MPM prefork, `
 
 | Patch | Decision / reason |
 | --- | --- |
-| `CVE-2025-55753.patch` | Broad newer-`mod_md` ACME/OCSP changes do not cleanly apply to Focal 2.0.10. A Focal-native exponential backoff correction has been added; full CVE equivalence **not yet established**. |
+| `CVE-2025-55753.patch` | Broad newer-`mod_md` ACME/OCSP changes do not cleanly apply to Focal 2.0.10. The native Focal retry-overflow mechanism is mitigated by a bounded exponential delay; reviewed and tested. The *entire* Jammy diff is not transplanted, nor is ESM source equivalence claimed. |
 | `CVE-2025-55753-3.patch` | Regression fix involving `MDStapleOthers` in newer `mod_md`; this directive and new OCSP components are absent from native Focal; checked by CI. |
 | `CVE-2026-29168.patch` | Only modifies newer `modules/md/md_ocsp.c`, absent from native Focal; CI checks the *exact patch path set* and absence of those OCSP units. Does **not** clear the independent `mod_ssl` OCSP implementation. |
 | `mod_proxy_hcheck_jammy_fix_to_detect_support.patch` | Jammy AJP optional hook relocation refers to a detection block absent from Focal. Its source architecture differs; importing this patch is not appropriate. |
 
-Do not increment the 63 count for the native backoff patch or reclassify the first CVE without a substantive review. See [mod_md architecture audit](analysis/mod-md-compatibility-latest.md), [native Focal source audit](analysis/mod-md-native-port-latest.md), and [patch manifests](analysis/).
+Do not increment the 63 Jammy patch count for the Focal-native backoff patch. The native CVE mechanism has its own reviewed mitigation rather than an imported upstream patch. See [mod_md architecture audit](analysis/mod-md-compatibility-latest.md), [native Focal source audit](analysis/mod-md-native-port-latest.md), and [patch manifests](analysis/).
 
 ## 3. How the build actually works
 
@@ -102,7 +102,7 @@ For complete run history, use the [branch Actions listing](https://github.com/bi
 ## 7. Remaining work and release gates
 
 1. The **#84** UBSan boundary test and existing build/runtime matrix passed; do not rerun them without a new code change or concrete regression.
-2. Decide whether the native `mod_md` backoff adjustment covers the **actual vulnerable Focal path** for `CVE-2025-55753` (not the entire unrelated Jammy 2.6 codebase). Keep excluded status if unresolved. The newer `MDStapleOthers` regression and `md_ocsp.c`-only patch are separately documented as not applicable to Focal's code structure.
+2. The native Focal `CVE-2025-55753` retry arithmetic review is **closed for this specific failure mechanism**; details and limitations are in [the security finding](analysis/cve-2025-55753-focal.md). No more backoff tests are justified absent changed code. The newer `MDStapleOthers` regression and `md_ocsp.c`-only patch remain separately excluded as not applicable to Focal's code structure.
 3. Review final Ubuntu ESM advisories and any relevant security gaps not represented by the Jammy patch list; **63 imported files do not equal complete ESM coverage**. If exact Canonical ESM sources are available with authorization, compare source changes instead of making equivalence assumptions.
 4. Only after security review, choose candidate Debian package version and changelog, verify dependency metadata/`dpkg` conffile behavior, preserve existing modules/MPM and prepare test-VM install + rollback. Use existing CI suite once; add a targeted test only when an uncovered functional risk is concrete.
 5. Produce signed/distributable artifacts only after acceptance. Current GitHub CI packages are labeled **EXPERIMENTAL / DO NOT DEPLOY** and must not be renamed release-ready automatically.

@@ -24,7 +24,7 @@ Start with [the detailed Focal README](apache2/focal/README.md), then check:
 
 [GitHub Actions](https://github.com/bilo1967/LegacyPackages/actions) | [Focal branch](https://github.com/bilo1967/LegacyPackages/tree/backport/focal)
 
-The **remaining Focal gate** is to review `CVE-2025-55753` coverage beyond the native backoff correction, then review package metadata and release/rollback arrangements. Do not confuse the absence of newer `mod_md` OCSP source units with a general security clearance.
+The Focal-native renewal-delay arithmetic for **CVE-2025-55753** is reviewed and tested: the vulnerable shift is bounded before evaluation (see [technical finding](apache2/focal/analysis/cve-2025-55753-focal.md)). The broad Jammy patch remains excluded as it replaces newer `mod_md` architecture. Next: review package metadata, security provenance gaps, and release/rollback arrangements. Do not conflate this specific finding with full Ubuntu ESM equivalence.
 
 ### Ubuntu 18.04: do not start a second broad backport by default
 
