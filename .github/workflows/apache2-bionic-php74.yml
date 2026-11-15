@@ -9,7 +9,7 @@ on:
 
 permissions:
   actions: read
-  contents: read
+  contents: write
 
 jobs:
   smoke-php74:
@@ -41,6 +41,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          set +e
           docker run --rm --cpus=2 --memory=3g --pids-limit=256 \
             --mount type=bind,source="$PWD/output",target=/build,readonly \
             --mount type=bind,source="$PWD/php74",target=/php,readonly \
@@ -72,4 +73,23 @@ jobs:
               grep -q "^7.4.33;okapache2handler$" /tmp/php-response.txt
               dpkg-query -W apache2 apache2-bin apache2-data apache2-utils libapache2-mod-php7.4 php7.4-common
               echo "Bionic Apache + Niek PHP 7.4.33 smoke test successful"
-            '
+            ' > php74/apache-php-smoke.log 2>&1
+          result=$?
+          set -e
+          tail -n 120 php74/apache-php-smoke.log
+          if [ "$result" -ne 0 ]; then
+            mkdir -p apache2/bionic/analysis
+            cp php74/apache-php-smoke.log apache2/bionic/analysis/php74-smoke-error.log
+            exit "$result"
+          fi
+      - name: Record PHP 7.4 compatibility failure log
+        if: failure()
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f apache2/bionic/analysis/php74-smoke-error.log
+          git add apache2/bionic/analysis/php74-smoke-error.log
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "ci(bionic): record Niek PHP 7.4 compatibility smoke failure"
+          git push origin HEAD:backport/bionic
