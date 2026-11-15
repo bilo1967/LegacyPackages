@@ -55,7 +55,8 @@ jobs:
               a2enmod mpm_prefork
               apt-get install -y --no-install-recommends \
                 /php/php7.4-common_*.deb \
-                /php/php7.4-cli_*.deb \
+                /php/php7.4-json_*.deb /php/php7.4-opcache_*.deb \
+                /php/php7.4-readline_*.deb /php/php7.4-cli_*.deb \
                 /php/libapache2-mod-php7.4_*.deb
               a2enmod php7.4 ssl rewrite proxy proxy_http headers
               echo ServerName localhost > /etc/apache2/conf-available/unibo-ci.conf
