@@ -2,44 +2,40 @@
 
 **Status (2026-11-15): selection and source applicability only; no patch has been applied, no package has been compiled, no production changes.**
 
-This is an intentionally **narrow interim security backport**, not a rerun of the Focal 63-patch program. Baseline package family: `2.4.29-1ubuntu4.27`, **but actual installed revision on mrscoulter must be checked** before making any vulnerability claims. Canonical's complete patched Bionic ESM reference is `2.4.29-1ubuntu4.27+esm15` (USN-9090-1). The exact ESM source is preferable if access is available.
+This is an intentionally **narrow interim security backport**, not a rerun of the Focal 63-patch program. Installed and confirmed on mrscoulter: `apache2`, `apache2-bin`, `apache2-data`, `apache2-utils`, and `apache2-dev` at exactly `2.4.29-1ubuntu4.27` (2026-11-15). Canonical's complete patched Bionic ESM reference is `2.4.29-1ubuntu4.27+esm15` (USN-9090-1). The exact ESM source is preferable if access is available.
 
-## Phase 1 — selected recent vulnerabilities
+## Verified host inventory (15 November 2026)
 
-Priority is a combination of **impact** and **actual exposure**, not just publication date or CVE count. A code-level port is proposed only if the vulnerable path actually exists in Bionic and has not already been fixed.
+- **Apache:** 2.4.29, Ubuntu package `2.4.29-1ubuntu4.27`, MPM **prefork**.
+- **Loaded:** `ssl`, `rewrite`, `proxy`, `proxy_http`, `cgi`, `include`, `headers`, `auth_basic`, `authn_file`, `authz_core`, `php7_module`, plus ordinary core/utility modules.
+- **Not loaded:** `http2`, `md`, `dav`, `dav_fs`, `vhost_alias`, `auth_digest`, `proxy_ftp`, `proxy_fcgi`, `fcgid`, `jk`, `php7.2` and any PHP 5 module. Do not claim those optional components cannot be enabled in the future.
+- **PHP:** actual active integration is mod_php 7.4.33 from Niek's Bionic package (`libapache2-mod-php7.4`). PHP 7.4 FPM also installed, but no `proxy_fcgi` is loaded. PHP below 7.4 is out of scope; remove legacy packages only after checking dpkg *installed* state and doing an APT purge simulation.
+- Warnings about `ScriptAlias` overlap and absent document roots predate this project and do not block source patch triage.
+- `dpkg-query -W` without the Status column can also display uninstalled package records; do **not** infer that all `apache2*` and `libapache2-mod-*` names in its output are installed.
 
-| CVE | Canonical notice | Potential impact | Component / triage |
-| --- | --- | --- | --- |
-| CVE-2026-109163 | USN-9090-1, 12 Nov | Stack overflow; potential RCE / DoS | `mod_vhost_alias`; check if installed/loaded; select for source review. |
-| CVE-2026-56153 | USN-9016-1, 10 Nov | Memory fault; potential RCE / DoS | Core/path to identify from upstream patch; select. |
-| CVE-2026-63292 | USN-8931-1, 14 Oct | Potential RCE / DoS | HTTP request handling; select. |
-| CVE-2026-56154 | USN-8898-1, 7 Oct | Potential RCE / DoS | `mod_rewrite`; select; frequently loaded. |
-| CVE-2026-59797 | USN-8898-1, 7 Oct | Access-control bypass | `mod_ssl` expression handling; select. |
-| CVE-2026-47360 | USN-9016-1, 10 Nov | Session cookie information disclosure | Session handling; select. |
-| CVE-2026-46729 | USN-9016-1, 10 Nov | Denial of service | Memory handling; check code path. |
-| CVE-2026-48005 | USN-9016-1, 10 Nov | Unauthenticated DoS | Authentication; check path. |
+## Phase 1 — source shortlist for mrscoulter
 
-**Conditional additions based on enabled features, not automatic imports:**
+Prioritize known relevant **code paths** and remote impact; a patch is admitted only after comparison against Bionic 2.4.29. This is a planning list, **not** a list of fixed vulnerabilities.
 
-- `CVE-2026-57941` (USN-8898-1): `mod_http2` memory corruption, possible RCE. Include immediately if HTTP/2 is installed and exposed.
-- `CVE-2026-73636` (USN-8931-1): Digest authentication bypass under MITM circumstances. Include if Digest is used; this may entail regression/prerequisite patches.
-- `CVE-2026-42528` (USN-9090-1): `mod_dav` locking DoS; review if WebDAV/locking is enabled.
-- `CVE-2026-63045` (USN-8931-1): forward-proxy FTP backend response issue; review if FTP forwarding is possible.
+| CVE | Notice | Impact and host priority |
+| --- | --- | --- |
+| **CVE-2026-56153** | USN-9016-1, 10 Nov | Possible code execution/DoS in memory handling; **high — core review**. |
+| **CVE-2026-63292** | USN-8931-1, 14 Oct | Possible code execution/DoS handling HTTP requests; **high — HTTP code review**. |
+| **CVE-2026-56154** | USN-8898-1, 7 Oct | Possible code execution/DoS in **loaded `mod_rewrite`**; **high**. |
+| **CVE-2026-59797** | USN-8898-1, 7 Oct | Potential access-control bypass in **loaded `mod_ssl`**; **high** (actual affected configuration to check). |
+| **CVE-2026-46729** | USN-9016-1, 10 Nov | Memory-handling DoS; **include in source review**. |
+| **CVE-2026-48005** | USN-9016-1, 10 Nov | Unauthenticated DoS in authentication processing; **include in source review**. |
+| **CVE-2026-47360** | USN-9016-1, 10 Nov | Cookie-information disclosure; **include if the vulnerable session logic is present/reachable**. |
+| **CVE-2026-63686** | USN-8931-1, 14 Oct | DoS in processing backend responses; **include in source review** because `proxy_http` is loaded. |
+| **CVE-2026-73637** | USN-8931-1, 14 Oct | Authentication-processing DoS; **include if source path matches**. |
 
-**Explicitly not in the immediate Bionic tranche:** `CVE-2026-106023` (`mod_md`), `CVE-2026-119618` (`mod_http2` new-header fault), `CVE-2026-56449`, and `CVE-2026-63718`, because the cited Ubuntu notices explicitly exclude Bionic. Do **not** import the similarly named Jammy patch simply because it exists in the Focal manifest.
+**Deferred pending actual module/feature use** (not proven fixed): `CVE-2026-42528` (`mod_dav`), `CVE-2026-109163` (`mod_vhost_alias`, possible code execution), `CVE-2026-57941` (`mod_http2`), `CVE-2026-73636` (`mod_auth_digest`), `CVE-2026-58415`/`CVE-2026-93546` (WebDAV), `CVE-2026-63045` (FTP forward-proxy), `CVE-2026-79768` (user-directory restrictions; assess if userdir is actually active). `CVE-2026-109163` is **serious**, but its module is *not loaded* on this host; if enabled elsewhere, reprioritize immediately.
 
-The remaining October and earlier CVEs are not presumed safe. Defer them to phase 2; give particular attention to the July configuration-expression issue `CVE-2026-44631` (possible code execution/DoS on Bionic), and to `CVE-2026-44185` (`mod_ssl` OCSP) if exposed.
+**Not applicable to Bionic per Canonical notices:** `CVE-2026-106023` (newer `mod_md`), `CVE-2026-119618` (newer HTTP/2 path), `CVE-2026-56449`, `CVE-2026-63718`. Do not blindly copy those Jammy patch files. July and earlier issues remain a separate backlog, not a clean security bill.
 
 ## Efficient execution plan (strict time and GitHub Actions budget)
 
-1. Read-only inventory of mrscoulter, *before* selecting patches:
-   ```sh
-   apache2 -v
-   apt-cache policy apache2 apache2-bin apache2-dev
-   apache2ctl -M
-   dpkg-query -W 'apache2*' 'libapache2-mod-*' 2>/dev/null
-   ```
-   Identify use of `mod_ssl`, `mod_rewrite`, HTTP/2, `mod_dav`, `mod_vhost_alias`, Digest, and backend proxy protocols; confirm external Apache DSOs and PHP handler. Do not publish sensitive vhost definitions.
+1. **Inventory completed**: exact base packages, active modules and PHP integration confirmed above. If cleaning up legacy PHP, use dpkg Status-Abbrev to distinguish installed packages from historical records; simulate purges before proceeding.
 2. Reuse the **method**, not the resulting Focal binaries: retrieve official Bionic source `2.4.29-1ubuntu4.27` and existing Jammy candidate patch files; run **local/source-only zero-fuzz dry runs** against just the selected patches. Review genuine C path/context and prerequisite/regression fix relationships. Record applicability in a manifest. Do not infer effectiveness from clean application alone.
 3. If the selected fixes have manageable context, perform **one** Docker Ubuntu 18.04 build with a custom Debian version and test the modules actually used by mrscoulter, including ABI preservation and PHP. Start with only the narrow patch set; do not automatically add the remaining 50+ Jammy changes.
 4. Do not run the full Focal CI matrix. Limit CI to one build and one operational smoke test; stop if source/API incompatibilities multiply. The current free GitHub Actions minutes are nearly exhausted, so prefer a local disposable container (or a runner with available budget), not repeated cloud experiments.
@@ -54,4 +50,4 @@ The remaining October and earlier CVEs are not presumed safe. Defer them to phas
 - [USN-8571-1](https://ubuntu.com/security/notices/USN-8571-1) (20 Jul 2026): earlier candidate tranche, intentionally deferred.
 - [Focal backport technical record](https://github.com/bilo1967/LegacyPackages/blob/backport/focal/apache2/focal/README.md).
 
-**Safety:** exposure and installed patch level are presently unverified for mrscoulter. The fact that an old bug has not visibly been exploited is no evidence that it is safe; the interim shortlist leaves a known residual security gap by design.
+**Safety:** installed Apache version and loaded modules are known; **CVE path-level exposure remains to be established against source**. The fact that an old bug has not visibly been exploited is no evidence that it is safe; the interim shortlist leaves a known residual security gap by design.
