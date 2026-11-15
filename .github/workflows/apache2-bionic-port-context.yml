@@ -1,0 +1,55 @@
+name: Bionic selected CVE source context inspection
+
+on:
+  push:
+    branches: [backport/bionic]
+    paths:
+      - '.github/workflows/apache2-bionic-port-context.yml'
+      - 'apache2/bionic/tools/inspect-ports.py'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  inspect:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download original Bionic and Jammy source for context review
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p apache2/bionic/analysis/port-context
+          docker run --rm --cpus=2 --memory=2g \
+            --mount type=bind,source="$PWD",target=/repo \
+            --workdir /repo ubuntu:22.04 bash -euc '
+              apt-get update
+              apt-get install -y --no-install-recommends ca-certificates wget dpkg-dev patch python3
+              mkdir -p /tmp/bionic /tmp/jammy
+              cd /tmp/bionic
+              base=https://archive.ubuntu.com/ubuntu/pool/main/a/apache2
+              for suffix in .dsc .debian.tar.xz; do
+                wget -q "$base/apache2_2.4.29-1ubuntu4.27$suffix"
+              done
+              wget -q "$base/apache2_2.4.29.orig.tar.gz"
+              dpkg-source -x apache2_2.4.29-1ubuntu4.27.dsc
+              printf "deb-src http://archive.ubuntu.com/ubuntu jammy main universe\ndeb-src http://archive.ubuntu.com/ubuntu jammy-updates main universe\ndeb-src http://security.ubuntu.com/ubuntu jammy-security main universe\n" > /etc/apt/sources.list.d/jammy-src.list
+              apt-get update
+              cd /tmp/jammy
+              apt-get source apache2=2.4.52-1ubuntu4.27
+              python3 /repo/apache2/bionic/tools/inspect-ports.py \
+                /tmp/bionic/apache2-2.4.29 /tmp/jammy/apache2-2.4.52 \
+                /repo/apache2/bionic/analysis/port-context
+            '
+      - name: Publish source-only context inspection (no build)
+        run: |
+          set -euo pipefail
+          git add apache2/bionic/analysis/port-context
+          if ! git diff --cached --quiet; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git commit -m "ci(bionic): record original vendor patch context for selective ports"
+            git push origin HEAD:backport/bionic
+          fi
