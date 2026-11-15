@@ -1,6 +1,6 @@
 # Apache 2.4.29 for Ubuntu 18.04 (Bionic) — interim RC1
 
-**Version**: `2.4.29-1ubuntu4.27+unibo1~rc1` (amd64).
+**Version**: `2.4.29-1ubuntu4.27+bilo1~rc1` (amd64).
 
 **Scope**: selective interim backport for `mrscoulter`, based on the stock Ubuntu Bionic `apache2 2.4.29-1ubuntu4.27` source package, preserving Ubuntu packaging and the Apache module ABI. This is **not** an Ubuntu Pro/ESM replacement and **not** a complete fix for all outstanding CVEs.
 

@@ -20,7 +20,7 @@ patches requiring adaptation. Passing a patch dry-run does **not** prove
 security remediation.
 
 An **experimental two-CVE package set** was successfully compiled as
-`2.4.29-1ubuntu4.27+unibo0~experimental1` during
+`2.4.29-1ubuntu4.27+bilo0~experimental1` during
 [CI run #5](https://github.com/bilo1967/LegacyPackages/actions/runs/43711158241).
 The original full workflow is marked failed solely because its smoke-test
 container omitted the `wget` test tool. Its binary-build stage succeeded;
@@ -41,7 +41,7 @@ reinstalled as a side effect of the Apache security backport.
 
 **Build + smoke tests succeeded (15 November 2026).** Exact Bionic base:
 `2.4.29-1ubuntu4.27`; experimental Debian version:
-`2.4.29-1ubuntu4.27+unibo0~experimental2`.
+`2.4.29-1ubuntu4.27+bilo0~experimental2`.
 
 Five security patch entries are included:
 
@@ -65,7 +65,7 @@ No changes were made to mrscoulter. Before deploying a candidate, create an expl
 
 ## Interim RC1 for test deployment
 
-RC Debian version: `2.4.29-1ubuntu4.27+unibo1~rc1`. The RC is generated
+RC Debian version: `2.4.29-1ubuntu4.27+bilo1~rc1`. The RC is generated
 from the **same five source patch entries** as the successful experimental
 build. It is a partial security backport for the modules used on
 `mrscoulter`, not a statement that Ubuntu 18.04 is fully secured or ESM-equivalent.
@@ -86,7 +86,7 @@ arrange a maintenance window and check the vhosts after installation.
 
 [**Successful RC1 workflow #2**](https://github.com/bilo1967/LegacyPackages/actions/runs/43716982446),
 artifact `apache2-bionic-RC1` (retained for 30 days). This action produced
-version `2.4.29-1ubuntu4.27+unibo1~rc1` and passed all steps.
+version `2.4.29-1ubuntu4.27+bilo1~rc1` and passed all steps.
 
 The artifact contains the five `.deb` files, `SHA256SUMS`,
 `PATCH-MANIFEST.md`, `RELEASE-NOTES.md` and
@@ -110,3 +110,5 @@ Proceed only if the simulated upgrade touches those five Apache packages
 and no PHP packages. Be aware that package maintainer scripts may restart
 Apache automatically. After installation, check `apache2ctl configtest`,
 `systemctl status apache2`, loaded modules and critical vhosts.
+
+**Package naming:** the maintained Bionic RC uses the maintainer prefix `bilo` rather than an institutional identifier. Earlier experiment runs were built with the old suffix; their linked CI logs and artifacts remain historical evidence, not the release to install.

@@ -75,5 +75,5 @@ A selective source backport now incorporates `CVE-2026-63292`, `CVE-2026-56153`,
 
 - [Package build and Apache runtime smoke test: success](https://github.com/bilo1967/LegacyPackages/actions/runs/43712616135).
 - [Compatibility smoke test with Niek's Bionic PHP 7.4.33: success](https://github.com/bilo1967/LegacyPackages/actions/runs/43713119730).
-- Experimental package version: `2.4.29-1ubuntu4.27+unibo0~experimental2`; no production deployment.
+- Experimental package version: `2.4.29-1ubuntu4.27+bilo0~experimental2`; no production deployment.
 - `mod_heartmonitor`, `mod_session_cookie` and `mod_xml2enc` are not loaded on mrscoulter: defer their patches from the initial host-specific batch. Other older vulnerabilities still require later assessment.

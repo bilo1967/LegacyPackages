@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 55
     env:
-      APACHE_BIONIC_VERSION: '2.4.29-1ubuntu4.27+unibo1~rc1'
+      APACHE_BIONIC_VERSION: '2.4.29-1ubuntu4.27+bilo1~rc1'
     steps:
       - uses: actions/checkout@v4
       - name: Build exact Bionic Apache RC1 sources with five security patches
@@ -128,8 +128,8 @@ jobs:
                 php7.4-common php7.4-cli libapache2-mod-php7.4 > /tmp/php-after.txt
               diff -u /tmp/php-before.txt /tmp/php-after.txt
               a2enmod php7.4 ssl rewrite proxy proxy_http headers
-              echo ServerName localhost > /etc/apache2/conf-available/unibo-ci.conf
-              a2enconf unibo-ci
+              echo ServerName localhost > /etc/apache2/conf-available/bilo-ci.conf
+              a2enconf bilo-ci
               apache2ctl configtest
               apache2ctl -M > /tmp/modules.txt
               grep -q mpm_prefork_module /tmp/modules.txt

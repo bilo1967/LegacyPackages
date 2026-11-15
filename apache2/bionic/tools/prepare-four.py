@@ -17,17 +17,17 @@ if len(sys.argv) != 4:
     sys.exit("usage: prepare-four.py BIONIC_SOURCE JAMMY_PATCH_ROOT OUTPUT_REPORT")
 src, vendor, out = [Path(x).resolve() for x in sys.argv[1:]]
 out.mkdir(parents=True, exist_ok=True)
-version = os.environ.get("APACHE_BIONIC_VERSION", "2.4.29-1ubuntu4.27+unibo0~experimental2")
-if version not in ("2.4.29-1ubuntu4.27+unibo0~experimental2", "2.4.29-1ubuntu4.27+unibo1~rc1"):
+version = os.environ.get("APACHE_BIONIC_VERSION", "2.4.29-1ubuntu4.27+bilo0~experimental2")
+if version not in ("2.4.29-1ubuntu4.27+bilo0~experimental2", "2.4.29-1ubuntu4.27+bilo1~rc1"):
     sys.exit("Unapproved Bionic package version: " + version)
 patch_dir = src / "debian/patches"
 series = patch_dir / "series"
 existing = set(l.split()[0] for l in series.read_text().splitlines()
                if l.strip() and not l.startswith("#"))
 source_names = ["CVE-2026-63292.patch", "CVE-2026-56153.patch"]
-port_names = ["unibo-CVE-2026-56154-bionic.patch",
-              "unibo-CVE-2026-44119-bionic.patch",
-              "unibo-CVE-2026-59797-bionic.patch"]
+port_names = ["bilo-CVE-2026-56154-bionic.patch",
+              "bilo-CVE-2026-44119-bionic.patch",
+              "bilo-CVE-2026-59797-bionic.patch"]
 for name in source_names + port_names:
     if name in existing:
         sys.exit("Already present in Bionic patch series: " + name)
