@@ -91,24 +91,6 @@ jobs:
           Path('/tmp/release-id').write_text(str(release['id']))
           print('Found RC release',release['id'],'draft:',release['draft'])
           PY
-      - name: Pin tag to original tested source
-        shell: bash
-        run: |
-          set -euo pipefail
-          git fetch --tags origin
-          current=$(git rev-parse -q --verify "refs/tags/$RELEASE_TAG^{}" || true)
-          if [ -n "$current" ]; then
-            test "$current" = "$BUILT_SHA" || {
-              echo "::error::Existing release tag targets a different commit. No rewrite attempted."
-              exit 1
-            }
-          else
-            git fetch origin "$BUILT_SHA"
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git tag -a "$RELEASE_TAG" -m "Apache Focal RC1 tested source" "$BUILT_SHA"
-            git push origin "refs/tags/$RELEASE_TAG"
-          fi
       - name: Attach missing packages, metadata and release notes
         shell: bash
         run: |
@@ -134,7 +116,7 @@ jobs:
           python3 - <<'PY'
           import json
           from pathlib import Path
-          Path('/tmp/body.json').write_text(json.dumps({'body':Path('release-assets/RELEASE-NOTES.md').read_text()}))
+          Path('/tmp/body.json').write_text(json.dumps({'body':Path('release-assets/RELEASE-NOTES.md').read_text(), 'target_commitish':__import__('os').environ['BUILT_SHA']}))
           PY
           gh api -X PATCH "repos/$GITHUB_REPOSITORY/releases/$id" --input /tmp/body.json --jq '{draft,prerelease,name,assets:(.assets|length)}'
           echo "RC1 release updated; publication state left unchanged." >> "$GITHUB_STEP_SUMMARY"
