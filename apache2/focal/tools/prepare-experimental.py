@@ -983,6 +983,27 @@ assert new_backoff in md_drive.read_text()
 # The cap is 3600s. The first overflowing/unbounded exponent is never reached.
 assert (5 << 9) < 3600 and (5 << 10) > 3600
 
+# CVE-2025-55753-3 is an upstream 2.6.6 -> 2.6.7 regression fix for
+# MDStapleOthers (USN-7968-2). Confirm the new feature is absent from
+# Focal's native mod_md 2.0.10; never transplant the OCSP fix in isolation.
+md_source = focal / "modules/md"
+md_files = list(md_source.glob("*.[ch]"))
+feature_files = [str(path.relative_to(focal)) for path in md_files
+                 if "MDStapleOthers" in path.read_text(errors="replace")]
+if feature_files or (md_source / "mod_md_ocsp.c").exists() or (md_source / "md_ocsp.c").exists():
+    sys.exit("OCSP/MDStapleOthers architecture differs from expected Focal baseline: "
+             + ", ".join(feature_files))
+(out / "mod-md-followup-disposition.md").write_text(
+    "# CVE-2025-55753-3 applicability to Focal mod_md\n\n"
+    "Ubuntu USN-7968-2 describes a regression of MDStapleOthers after "
+    "updating mod_md to 2.6.6. Focal's native module is 2.0.10.\n\n"
+    "- No MDStapleOthers directive is found in the Focal mod_md source.\n"
+    "- Newer mod_md OCSP implementation units are absent.\n"
+    "- The Focal-native renewal backoff fix is retained separately.\n\n"
+    "Decision: do not import this newer-architecture regression fix.\n"
+    "This is a feature applicability finding, NOT a blanket claim that "
+    "Focal's certificate/OCSP implementation is free of vulnerabilities.\n"
+)
 # Verify the entire expression parser protection is present if imported.
 if "CVE-2026-44119.patch" in current:
     expr_header = (focal / "include/ap_expr.h").read_text()
@@ -1018,6 +1039,9 @@ with (out / "experimental-manifest.md").open("w") as f:
     f.write("| Patch | Decision | Reason |\n|---|---|---|\n")
     for name, state, why in decisions:
         f.write(f"| \`{name}\` | {state} | {why.replace('|', '/') } |\n")
+    f.write("\nCVE-2025-55753-3: upstream MDStapleOthers regression fix; "
+            "the directive and newer OCSP implementation are absent in "
+            "native Focal mod_md (verified by CI). Not imported.\n")
     f.write("\nAdditional Focal-only hardening (not counted as a Jammy CVE fix): "
             + md_patch_name + ". CVE-2025-55753 remains excluded.\n")
     f.write("\nNext: review each source diff, add prerequisite patches and complete "
